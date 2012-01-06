@@ -1,0 +1,6 @@
+cron:
+- description: daily notification
+  url: /task/notify
+  schedule: every day 7:00
+  timezone: America/Los_Angeles
+

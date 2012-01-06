@@ -1,0 +1,29 @@
+application: s~sauer-pda
+version: yyyy-mm-dd-rxxx
+runtime: python
+api_version: 1
+
+builtins:
+- datastore_admin: on
+- appstats: on
+- remote_api: on
+
+inbound_services:
+- mail
+
+handlers:
+- url: /favicon\.ico
+  static_files: favicon.ico
+  upload: favicon\.ico
+
+- url: /stats.*
+  script: $PYTHON_LIB/google/appengine/ext/appstats/ui.py
+
+- url: /_ah/mail/.+
+  script: main.py
+  login: admin
+
+- url: /.*
+  script: main.py
+  login: admin
+  secure: always

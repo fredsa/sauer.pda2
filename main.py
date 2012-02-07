@@ -86,7 +86,7 @@ class MainHandler(webapp.RequestHandler):
       (calendar, person) = db.get((key, key.parent()))
       event = "%s %s %s" % (calendar.first_occurrence, calendar.occasion, calendar.comments)
       log += "%s -- %s\n" % (event, person.displayName())
-      body = "%s\n\n%s\n" % (person.displayName(), person.editUrl())
+      body = "%s\n\n%s\n" % (person.displayName(), person.viewUrl())
       log + "body = %s" % body
       subject = "%s %s" % (APPID, event)
       mail.send_mail(sender=SENDER,
@@ -107,7 +107,7 @@ class MainHandler(webapp.RequestHandler):
       for calendar in Calendar.all():
         when = calendar.first_occurrence
         if when.strftime("%m/%d") == now_mm_dd:
-          log += "%s\n" % calendar.editUrl()
+          log += "%s\n" % calendar.viewUrl()
           taskqueue.add(url='/task/mail', params={'key': calendar.key()})
       log += "Done"
       log_and_mail()
@@ -289,6 +289,22 @@ class MainHandler(webapp.RequestHandler):
         self.addressForm(Address())
       elif kind == "Calendar":
         self.calendarForm(Calendar())
+    elif action == "view":
+      if kind == "Person":
+        person = self.requestToPerson(self.request)
+        self.personView(person)
+      elif kind == "Contact":
+        contact = self.requestToContact(self.request)
+        person = db.get(contact.key().parent())
+        self.personView(person)
+      elif kind == "Address":
+        address = self.requestToAddress(self.request)
+        person = db.get(address.key().parent())
+        self.personView(person)
+      elif kind == "Calendar":
+        calendar = self.requestToCalendar(self.request)
+        person = db.get(calendar.key().parent())
+        self.personView(person)
     elif action == "edit":
       if kind == "Person":
         person = self.requestToPerson(self.request)
@@ -739,6 +755,9 @@ class Thing(db.Model):
       return "enabled"
     else:
       return "DISABLED"
+
+  def viewUrl(self):
+    return "%s/?action=view&kind=%s&key=%s" % (ORIGIN, self.kind(), self.key())
 
   def editUrl(self):
     return "%s/?action=edit&modified=true&kind=%s&key=%s" % (ORIGIN, self.kind(), self.key())

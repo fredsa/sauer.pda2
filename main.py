@@ -292,31 +292,19 @@ class MainHandler(webapp.RequestHandler):
     elif action == "edit":
       if kind == "Person":
         person = self.requestToPerson(self.request)
-        if modified:
-          self.personView(person)
-        else:
-          self.personForm(person)
       elif kind == "Contact":
         contact = self.requestToContact(self.request)
-        if modified:
-          person = db.get(contact.key().parent())
-          self.personView(person)
-        else:
-          self.contactForm(contact)
+        person = db.get(contact.key().parent())
       elif kind == "Address":
         address = self.requestToAddress(self.request)
-        if modified:
-          person = db.get(address.key().parent())
-          self.personView(person)
-        else:
-          self.addressForm(address)
+        person = db.get(address.key().parent())
       elif kind == "Calendar":
         calendar = self.requestToCalendar(self.request)
-        if modified:
-          person = db.get(calendar.key().parent())
-          self.personView(person)
-        else:
-          self.calendarForm(calendar)
+        person = db.get(calendar.key().parent())
+      if modified:
+        self.personView(person)
+      else:
+        self.personForm(person)
     elif action == "fix":
       count = 0
       query = db.Query(keys_only=True)
@@ -753,7 +741,7 @@ class Thing(db.Model):
       return "DISABLED"
 
   def editUrl(self):
-    return "%s/?action=edit&kind=%s&key=%s" % (ORIGIN, self.kind(), self.key())
+    return "%s/?action=edit&modified=true&kind=%s&key=%s" % (ORIGIN, self.kind(), self.key())
 
 class Person(Thing):
   mailing_name = db.StringProperty(verbose_name="Mailing Name", default="")

@@ -1,5 +1,5 @@
 application: s~sauer-pda
-version: yyyy-mm-dd-rxxx
+version: git-md5-hash
 runtime: python
 api_version: 1
 

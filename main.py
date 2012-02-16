@@ -881,10 +881,11 @@ def migrate(person):
   yield op.db.Put(person)
 
 
+application = webapp.WSGIApplication([('/_ah/mail/.+', EmailHandler),
+                                      ('/.*', MainHandler)],
+                                     debug=True)
+
 def main():
-  application = webapp.WSGIApplication([('/_ah/mail/.+', EmailHandler),
-                                        ('/.*', MainHandler)],
-                                       debug=True)
   util.run_wsgi_app(application)
 
 

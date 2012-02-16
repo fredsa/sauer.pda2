@@ -16,8 +16,8 @@ handlers:
   static_files: favicon.ico
   upload: favicon\.ico
 
-#- url: /stats.*
-#  script: $PYTHON_LIB/google/appengine/ext/appstats/ui.py
+- url: /stats.*
+  script: google.appengine.ext.appstats.ui.app
 
 - url: /_ah/mail/.+
   script: main.application

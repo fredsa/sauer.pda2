@@ -1,10 +1,10 @@
 application: s~sauer-pda
 version: git-md5-hash
-runtime: python
+runtime: python27
 api_version: 1
+threadsafe: true
 
 builtins:
-- datastore_admin: on
 - appstats: on
 - remote_api: on
 
@@ -16,14 +16,14 @@ handlers:
   static_files: favicon.ico
   upload: favicon\.ico
 
-- url: /stats.*
-  script: $PYTHON_LIB/google/appengine/ext/appstats/ui.py
+#- url: /stats.*
+#  script: $PYTHON_LIB/google/appengine/ext/appstats/ui.py
 
 - url: /_ah/mail/.+
-  script: main.py
+  script: main.application
   login: admin
 
 - url: /.*
-  script: main.py
+  script: main.application
   login: admin
   secure: always

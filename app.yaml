@@ -1,10 +1,10 @@
 application: s~sauer-pda
 version: git-md5-hash
-runtime: python
+runtime: python27
 api_version: 1
+threadsafe: false
 
 builtins:
-- datastore_admin: on
 - appstats: on
 - remote_api: on
 

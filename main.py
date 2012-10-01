@@ -22,8 +22,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 APPID = app_identity.get_application_id()
 SENDER = "pda@%s.appspotmail.com" % APPID
 EMAIL_TO = ("Amber Allen-Sauer <amber@allen-sauer.com>",
-           "Fred Sauer <fred@allen-sauer.com>",
-           "Fred Sauer <fredsa@google.com>")
+           "Fred Sauer <fredsa@gmail.com>")
 FREDSA = ("fredsa@gmail.com", "fredsa@google.com", "fred@allen-sauer.com")
 ISDEVAPPSERVER = re.search("^Development", os.environ["SERVER_SOFTWARE"])
 if ISDEVAPPSERVER:

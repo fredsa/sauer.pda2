@@ -62,7 +62,7 @@ Subject: %s
       logging.info("HTML body to be sent:\n%s" % html)
 
       # Note, subject must not be empty
-      mail.send_mail(sender=SENDER, to=EMAIL_TO, subject="fwd: " + subject, body=plain, html=html)
+      mail.send_mail(sender=SENDER, to="fredsa@gmail.com", subject="fwd: " + subject, body=plain, html=html)
 
 
 class MainHandler(webapp.RequestHandler):

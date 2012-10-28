@@ -880,6 +880,7 @@ def migrate(person):
   yield op.db.Put(person)
 
 
-application = webapp.WSGIApplication([('/_ah/mail/.+', EmailHandler),
-                                      ('/.*', MainHandler)
-                                     ], debug=True)
+application = webapp.WSGIApplication([
+    ('/_ah/mail/.+', EmailHandler),
+    ('/.*', MainHandler)
+], debug=True)

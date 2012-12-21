@@ -321,6 +321,8 @@ class MainHandler(webapp.RequestHandler):
       query = db.Query(keys_only=True)
       for key in query:
         count += 1
+        if (key.kind().startswith('_')):
+          continue
         taskqueue.add(url='/', params={'fix': key})
         logging.info("%s: %s" % (count, key))
       self.response.out.write("DONE<br>")

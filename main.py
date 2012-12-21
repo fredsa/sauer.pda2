@@ -447,7 +447,10 @@ class MainHandler(webapp.RequestHandler):
           setattr(calendar, propname, value)
         elif isinstance(prop, db.DateProperty):
           value = req.get(propname)
-          value = datetime.datetime.strptime(value, '%m/%d/%y')
+          try:
+            value = datetime.datetime.strptime(value, '%m/%d/%y')
+          except ValueError:
+            value = datetime.datetime.strptime(value, '%m/%d/%Y')
           value = value.date()
           setattr(calendar, propname, value)
         else:
@@ -633,7 +636,7 @@ class MainHandler(webapp.RequestHandler):
           </div>
       """ % (clazz,
              calendar.editUrl(),
-             calendar.kind(), calendar.first_occurrence.strftime("%m/%d/%y"), calendar.frequency, calendar.occasion, calendar.enabledText(),
+             calendar.kind(), calendar.first_occurrence.strftime("%m/%d/%Y"), calendar.frequency, calendar.occasion, calendar.enabledText(),
              calendar.comments))
 
   def calendarForm(self, calendar):
@@ -683,7 +686,7 @@ class MainHandler(webapp.RequestHandler):
         html = """<code style="color:#ddd;">%s</code>""" % " ".join(value)
       elif isinstance(prop, db.DateProperty):
         if value:
-          value = value.strftime("%m/%d/%y")
+          value = value.strftime("%m/%d/%Y")
         else:
           value = ""
         html = """<input type="text" style="width: 8em;" name="%s" value="%s">""" % (propname, value)

@@ -25,13 +25,6 @@ EMAIL_TO = ("Amber Allen-Sauer <amber@allen-sauer.com>",
            "Fred Sauer <fredsa@gmail.com>")
 FREDSA = ("fredsa@gmail.com", "fredsa@google.com", "fred@allen-sauer.com")
 ISDEVAPPSERVER = re.search("^Development", os.environ["SERVER_SOFTWARE"])
-if ISDEVAPPSERVER:
-  ORIGIN = "http://localhost:8080"
-  ADMIN_URL = ORIGIN + "/_ah/admin"
-else:
-  ORIGIN = "https://%s.appspot.com" % APPID
-  ADMIN_URL = "https://appengine.google.com/dashboard?&app_id=%s" % APPID
-
 
 
 class EmailHandler(InboundMailHandler):
@@ -218,21 +211,13 @@ class MainHandler(webapp.RequestHandler):
     """ % (user, self.request.get("q")))
     if user.nickname() in FREDSA or ISDEVAPPSERVER:
       self.response.out.write("""
-            {<a href="%s" target="_blank">Admin</a>}
+            {<a href="/_ah/admin" target="_blank">Admin</a>}
             <br>
-      """ % ADMIN_URL)
-
-      fix_url = "%s/?action=fix" % ORIGIN
-      self.response.out.write("""
-            {<a href="%s">map-over-entities</a>}
+            {<a href="/?action=fix">map-over-entities</a>}
             <br>
-      """ % fix_url)
-
-      notify_url = "%s/task/notify" % ORIGIN
-      self.response.out.write("""
-            {<a href="%s">/task/notify</a>}
+            {<a href="/task/notify">/task/notify</a>}
             <br>
-      """ % notify_url)
+      """)
 
     q = self.request.get("q")
     action = self.request.get("action")
@@ -770,10 +755,10 @@ class Thing(db.Model):
       return "DISABLED"
 
   def viewUrl(self):
-    return "%s/?action=view&kind=%s&key=%s" % (ORIGIN, self.kind(), self.key())
+    return "/?action=view&kind=%s&key=%s" % (self.kind(), self.key())
 
   def editUrl(self):
-    return "%s/?action=edit&kind=%s&key=%s" % (ORIGIN, self.kind(), self.key())
+    return "/?action=edit&kind=%s&key=%s" % (self.kind(), self.key())
 
 class Person(Thing):
   mailing_name = db.StringProperty(verbose_name="Mailing Name", default="")

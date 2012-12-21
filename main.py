@@ -135,7 +135,6 @@ class MainHandler(webapp.RequestHandler):
           <html>
           <head>
             <title>PDA2</title>
-            <link rel="stylesheet" type="text/css" href="main.css"/>
             <style type="text/css">
               body {
                 line-height: 1.3em;

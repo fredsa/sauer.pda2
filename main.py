@@ -19,12 +19,18 @@ from google.appengine.api import mail
 from google.appengine.ext.webapp.mail_handlers import InboundMailHandler
 from google.appengine.ext.webapp.util import run_wsgi_app
 
+ISDEVAPPSERVER = re.search("^Development", os.environ["SERVER_SOFTWARE"])
+if ISDEVAPPSERVER:
+  DEFAULT_VERSION_ORIGIN = "http://localhost:8080"
+else:
+  DEFAULT_VERSION_ORIGIN = ("https://%s" %
+                            app_identity.get_default_version_hostname())
+
 APPID = app_identity.get_application_id()
 SENDER = "pda@%s.appspotmail.com" % APPID
 EMAIL_TO = ("Amber Allen-Sauer <amber@allen-sauer.com>",
            "Fred Sauer <fredsa@gmail.com>")
 FREDSA = ("fredsa@gmail.com", "fredsa@google.com", "fred@allen-sauer.com")
-ISDEVAPPSERVER = re.search("^Development", os.environ["SERVER_SOFTWARE"])
 
 
 class EmailHandler(InboundMailHandler):
@@ -757,10 +763,14 @@ class Thing(db.Model):
       return "DISABLED"
 
   def viewUrl(self):
-    return "/?action=view&kind=%s&key=%s" % (self.kind(), self.key())
+    # include origin for a fully qualified URL
+    return "%s/?action=view&kind=%s&key=%s" % (DEFAULT_VERSION_ORIGIN,
+                                               self.kind(), self.key())
 
   def editUrl(self):
-    return "/?action=edit&kind=%s&key=%s" % (self.kind(), self.key())
+    # include origin for a fully qualified URL
+    return "%s/?action=edit&kind=%s&key=%s" % (DEFAULT_VERSION_ORIGIN,
+                                               self.kind(), self.key())
 
 class Person(Thing):
   mailing_name = db.StringProperty(verbose_name="Mailing Name", default="")

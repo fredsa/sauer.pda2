@@ -16,6 +16,7 @@ from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.api import app_identity
 from google.appengine.api import mail
+from google.appengine.api import xmpp
 from google.appengine.ext.webapp.mail_handlers import InboundMailHandler
 from google.appengine.ext.webapp.util import run_wsgi_app
 
@@ -31,12 +32,37 @@ SENDER = "pda@%s.appspotmail.com" % APPID
 EMAIL_TO = ("Amber Allen-Sauer <amber@allen-sauer.com>",
             "Fred Sauer <fredsa@gmail.com>")
 FREDSA = ("fredsa@gmail.com", "fredsa@google.com", "fred@allen-sauer.com")
+ALERT_FREDSA = "fredsa@gmail.com"
+
+ALERT_RE = re.compile(".*This is an Alert.*ending in (\d\d\d\d)\."
+                      ".*A charge of \(\$USD\) (\d+\.\d\d)"
+                      " at (.*) has been authorized"
+                      " on ([^\.]*)\."
+                      .replace(" ", "\s+"), re.DOTALL)
 
 
 class EmailHandler(InboundMailHandler):
 
    def receive(self, msg):
       logging.warning("Received a message from: " + msg.sender)
+
+      plain = ""
+      for (dummy, body) in msg.bodies('text/plain'):
+        plain += body.decode()
+      logging.info("plain body:\n%s" % plain)
+
+      html = ""
+      for (dummy, body) in msg.bodies('text/html'):
+        html += body.decode()
+      logging.info("HTML body:\n%s" % html)
+
+      m = ALERT_RE.match(plain)
+      if m:
+        msg = '${1} "{2}" {3} (...{0})'.format(*m.groups())
+        logging.warning('Sending XMPP message %s' % msg)
+        xmpp.send_invite(ALERT_FREDSA)
+        xmpp.send_message(ALERT_FREDSA, msg)
+        return
 
       to = getattr(msg, "to", "")
       cc = getattr(msg, "cc", "")
@@ -51,18 +77,13 @@ Subject: %s
 
 """ % (msg.sender, to, cc, msg.date, subject)
 
-      plain = top
-      for (dummy, body) in msg.bodies('text/plain'):
-        plain += body.decode()
-      logging.info("plain body to be sent:\n%s" % plain)
+      plain = top + plain
+      html = top.replace("\n","<br>") + html
 
-      html = top.replace("\n","<br>")
-      for (dummy, body) in msg.bodies('text/html'):
-        html += body.decode()
-      logging.info("HTML body to be sent:\n%s" % html)
-
+      logging.info('Sending email...')
       # Note, subject must not be empty
-      mail.send_mail(sender=SENDER, to="fredsa@gmail.com", subject="fwd: " + subject, body=plain, html=html)
+      mail.send_mail(sender=SENDER, to="fredsa@gmail.com",
+                     subject="fwd: " + subject, body=plain, html=html)
 
 
 class MainHandler(webapp.RequestHandler):

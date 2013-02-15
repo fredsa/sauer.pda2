@@ -11,6 +11,8 @@ builtins:
 
 inbound_services:
 - mail
+- xmpp_message
+- xmpp_presence
 
 handlers:
 - url: /favicon\.ico
@@ -24,6 +26,26 @@ handlers:
 - url: /_ah/mail/.+
   script: main.application
   login: admin
+
+- url: /_ah/xmpp/presence/available/
+  static_files: empty.txt
+  upload: empty.txt
+
+- url: /_ah/xmpp/presence/probe/
+  static_files: empty.txt
+  upload: empty.txt
+
+- url: /_ah/xmpp/presence/unavailable/
+  static_files: empty.txt
+  upload: empty.txt
+
+- url: /_ah/xmpp/subscription/subscribe/
+  static_files: empty.txt
+  upload: empty.txt
+
+- url: /_ah/xmpp/subscription/subscribed/
+  static_files: empty.txt
+  upload: empty.txt
 
 - url: /.*
   script: main.application

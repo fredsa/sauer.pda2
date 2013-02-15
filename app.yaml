@@ -19,6 +19,14 @@ handlers:
   static_files: favicon.ico
   upload: favicon\.ico
 
+- url: /apple-touch-icon.png
+  static_files: favicon.ico
+  upload: favicon\.ico
+
+- url: /apple-touch-icon-precomposed.png
+  static_files: favicon.ico
+  upload: favicon\.ico
+
 - url: /stats.*
   script: google.appengine.ext.appstats.ui.app
   login: admin

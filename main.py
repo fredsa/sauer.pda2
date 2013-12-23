@@ -156,6 +156,7 @@ class MainHandler(webapp.RequestHandler):
           <!DOCTYPE html>
           <html>
           <head>
+            <meta name="viewport" content="initial-scale=1.0">
             <title>PDA2</title>
             <style type="text/css">
               body {

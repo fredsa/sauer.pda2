@@ -58,13 +58,11 @@ APP_ID=$(get_app_id $*)
 echo
 echo "Using app id: $APP_ID"
 
-function deploy() {
-  echo -e "\n*** Rolling back any pending updates (just in case) ***\n"
-  appcfg.py --oauth2 $* rollback .
+echo -e "\n*** Rolling back any pending updates (just in case) ***\n"
+appcfg.py --oauth2 $* rollback .
 
-  echo -e "\n*** DEPLOYING ***\n"
-  appcfg.py --oauth2 update -V $VERSION -A $APP_ID .
+echo -e "\n*** DEPLOYING ***\n"
+appcfg.py --oauth2 update -V $VERSION -A $APP_ID .
 
-  echo -e "\n*** SETTING DEFAULT VERSION ***\n"
-  appcfg.py --oauth2 set_default_version -V $VERSION -A $APP_ID .
-}
+echo -e "\n*** SETTING DEFAULT VERSION ***\n"
+appcfg.py --oauth2 set_default_version -V $VERSION -A $APP_ID .

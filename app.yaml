@@ -1,4 +1,4 @@
-application: s~sauer-pda
+application: sauer-pda
 version: git-md5-hash
 runtime: python27
 api_version: 1

@@ -8,6 +8,7 @@ import datetime
 import time
 import email
 import itertools
+import json
 
 from google.appengine.api import taskqueue
 from google.appengine.ext import webapp
@@ -94,6 +95,16 @@ class MainHandler(webapp.RequestHandler):
   def get(self):
     log = ""
 
+    def to_dict(model):
+      output = db.to_dict(model)
+      # output['key'] = model.key().id_or_name()
+      for k, v in output.items():
+        if k in ['words', 'category', 'contact_type']:
+          del output[k]
+        elif not v or v == '(Unspecified)':
+          del output[k]
+      return output
+
     def log_and_mail():
       logging.info(log)
       self.response.out.write("<html><body style='color: #00a; font-family: monospace;'>%s</body></html>" %
@@ -132,6 +143,19 @@ class MainHandler(webapp.RequestHandler):
           taskqueue.add(url='/task/mail', params={'key': calendar.key()})
       log += "Done"
       log_and_mail()
+      return
+
+    if self.request.path == "/dump":
+      self.response.clear()
+      self.response.headers.add_header('Content-Type', 'text/json')
+      self.response.headers.add_header('Content-Language', 'en-US')
+      for person in Person.all():
+        entity = to_dict(person)
+        for kind in [Address, Calendar, Contact]:
+          for child in kind.all():
+            entity[kind.kind()] = to_dict(child)
+        body = json.dumps(entity, sort_keys=True, indent=4, separators=(',', ': '), default=datetime.date.isoformat)
+        self.response.out.write(body)
       return
 
     if self.request.path != "/":

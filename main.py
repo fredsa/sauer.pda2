@@ -17,7 +17,6 @@ from google.appengine.ext import db
 from google.appengine.api import users
 from google.appengine.api import app_identity
 from google.appengine.api import mail
-from google.appengine.api import xmpp
 from google.appengine.ext.webapp.mail_handlers import InboundMailHandler
 from google.appengine.ext.webapp.util import run_wsgi_app
 
@@ -35,13 +34,6 @@ EMAIL_FREDSA = ("fredsa@gmail.com")
 ADMINS_FREDSA = ("fredsa@gmail.com", "fredsa@google.com", "fred@allen-sauer.com")
 ALERT_FREDSA = "fredsa@gmail.com"
 
-ALERT_RE = re.compile(".*This is an Alert.*ending in (\d\d\d\d)\."
-                      ".*A charge of \(\$USD\) (\d+\.\d\d)"
-                      " at (.*) has been authorized"
-                      " on ([^\.]*)\."
-                      .replace(" ", "\s+"), re.DOTALL)
-
-
 class EmailHandler(InboundMailHandler):
 
    def receive(self, msg):
@@ -56,14 +48,6 @@ class EmailHandler(InboundMailHandler):
       for (dummy, body) in msg.bodies('text/html'):
         html += body.decode()
       logging.info("HTML body:\n%s" % html)
-
-      m = ALERT_RE.match(plain)
-      if m:
-        msg = '${1} "{2}" {3} (...{0})'.format(*m.groups())
-        logging.warning('Sending XMPP message %s' % msg)
-        xmpp.send_invite(ALERT_FREDSA)
-        xmpp.send_message(ALERT_FREDSA, msg)
-        return
 
       to = getattr(msg, "to", "")
       cc = getattr(msg, "cc", "")

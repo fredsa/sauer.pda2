@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 #
+
+import cgi
 import logging
 import pprint
 import re
@@ -477,9 +479,13 @@ class MainHandler(webapp.RequestHandler):
           value = req.get(propname)
           try:
             value = datetime.datetime.strptime(value, '%m/%d/%y')
-          except ValueError:
-            value = datetime.datetime.strptime(value, '%m/%d/%Y')
-          value = value.date()
+            value = value.date()
+          except Exception:
+            try:
+              value = datetime.datetime.strptime(value, '%m/%d/%Y')
+              value = value.date()
+            except Exception:
+              value = None
           setattr(calendar, propname, value)
         else:
           self.response.out.write("HMMMM " + propname)
@@ -497,8 +503,8 @@ class MainHandler(webapp.RequestHandler):
           <div class="comments">%s</div>
           <div class="indent">
       """ % (person.editUrl(),
-             person.displayName(), person.category, person.enabledText(),
-             person.comments))
+             cgi.escape(person.displayName()), person.category, person.enabledText(),
+             cgi.escape(person.comments)))
 
       query = db.Query(Contact)
       query.ancestor(person.key())
@@ -576,12 +582,12 @@ class MainHandler(webapp.RequestHandler):
 
              address.editUrl(),
 
-             address.kind(), address.snippet(),
+             address.kind(), cgi.escape(address.snippet()),
              location_url, directions_url,
              address.address_type, address.enabledText(),
 
-             address.directions,
-             address.comments))
+             cgi.escape(address.directions),
+             cgi.escape(address.comments)))
 
   def addressForm(self, address):
       self.response.out.write("""
@@ -620,14 +626,14 @@ class MainHandler(webapp.RequestHandler):
           <span class="thing %s">%s</span>
       """ % (clazz,
              contact.editUrl(),
-             contact.kind(), text))
+             contact.kind(), cgi.escape(text)))
 
       self.response.out.write("""
           <span class="tag">(%s %s) [%s]</span><br>
           <div class="comments">%s</div>
           </div>
       """ % (contact.contact_method, contact.contact_type, contact.enabledText(),
-             contact.comments))
+             cgi.escape(contact.comments)))
 
   def contactForm(self, contact):
       self.response.out.write("""
@@ -656,6 +662,10 @@ class MainHandler(webapp.RequestHandler):
       clazz = ""
       if not calendar.enabled:
         clazz = "disabled"
+      try:
+        first_occurrence_formatted = calendar.first_occurrence.strftime("%m/%d/%Y")
+      except Exception:
+        first_occurrence_formatted = '**INVALID DATE**'
       self.response.out.write("""
           <div class="%s">
           <a href="%s" class="edit-link">Edit</a>
@@ -664,8 +674,8 @@ class MainHandler(webapp.RequestHandler):
           </div>
       """ % (clazz,
              calendar.editUrl(),
-             calendar.kind(), calendar.first_occurrence.strftime("%m/%d/%Y"), calendar.frequency, calendar.occasion, calendar.enabledText(),
-             calendar.comments))
+             calendar.kind(), first_occurrence_formatted, calendar.frequency, cgi.escape(calendar.occasion), calendar.enabledText(),
+             cgi.escape(calendar.comments)))
 
   def calendarForm(self, calendar):
       self.response.out.write("""

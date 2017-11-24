@@ -137,6 +137,8 @@ class MainHandler(webapp.RequestHandler):
       log += "Searching for calendar entities for %s ...\n" % now_mm_dd
 
       for calendar in Calendar.all():
+        if not calendar.enabled:
+          continue
         when = calendar.first_occurrence
         if when.strftime("%m/%d") == now_mm_dd:
           log += "%s\n" % calendar.viewUrl()

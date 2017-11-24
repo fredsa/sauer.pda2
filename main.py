@@ -613,9 +613,9 @@ class MainHandler(webapp.RequestHandler):
 
 
   def contactView(self, contact):
-      text = contact.contact_text
-      if re.match("^http", text):
-        text = """<a href="%s" target="_blank">%s</a>""" % (text, text)
+      html = cgi.escape(contact.contact_text)
+      if re.match("^http", html):
+        html = """<a href="%s" target="_blank">%s</a>""" % (html, html)
 
       clazz = ""
       if not contact.enabled:
@@ -626,7 +626,7 @@ class MainHandler(webapp.RequestHandler):
           <span class="thing %s">%s</span>
       """ % (clazz,
              contact.editUrl(),
-             contact.kind(), cgi.escape(text)))
+             contact.kind(), html))
 
       self.response.out.write("""
           <span class="tag">(%s %s) [%s]</span><br>

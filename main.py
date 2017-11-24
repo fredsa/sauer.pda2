@@ -30,9 +30,9 @@ else:
 
 APPID = app_identity.get_application_id()
 SENDER = "pda@%s.appspotmail.com" % APPID
-EMAIL_TO = ("Amber Allen-Sauer <amber@allen-sauer.com>",
-            "Fred Sauer <fredsa@gmail.com>")
-FREDSA = ("fredsa@gmail.com", "fredsa@google.com", "fred@allen-sauer.com")
+EMAIL_TO = ("Fred and/or Amber Sauer <sauer@allen-sauer.com>")
+EMAIL_FREDSA = ("fredsa@gmail.com")
+ADMINS_FREDSA = ("fredsa@gmail.com", "fredsa@google.com", "fred@allen-sauer.com")
 ALERT_FREDSA = "fredsa@gmail.com"
 
 ALERT_RE = re.compile(".*This is an Alert.*ending in (\d\d\d\d)\."
@@ -110,7 +110,7 @@ class MainHandler(webapp.RequestHandler):
       self.response.out.write("<html><body style='color: #00a; font-family: monospace;'>%s</body></html>" %
                               log.replace("\n", "<br>\n"))
       subject = "%s log for %s" % (APPID, self.request.path)
-      mail.send_mail(sender=SENDER, to=FREDSA, subject=subject, body=log)
+      mail.send_mail(sender=SENDER, to=EMAIL_FREDSA, subject=subject, body=log)
       return
 
     if self.request.path == "/task/mail":
@@ -265,7 +265,7 @@ class MainHandler(webapp.RequestHandler):
           <br>
           <br>
     """ % (user, self.request.get("q")))
-    if user.nickname() in FREDSA or ISDEVAPPSERVER:
+    if user.email() in ADMINS_FREDSA or ISDEVAPPSERVER:
       self.response.out.write("""
             {<a href="/_ah/admin" target="_blank">Admin</a>}
             <br>

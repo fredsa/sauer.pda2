@@ -264,15 +264,17 @@ class MainHandler(webapp.RequestHandler):
           [<a href=".?action=create&kind=Person">+Person</a>]
           <br>
           <br>
-    """ % (user, self.request.get("q")))
+    """ % (user.email(), self.request.get("q")))
     if user.email() in ADMINS_FREDSA or ISDEVAPPSERVER:
       self.response.out.write("""
-            {<a href="/_ah/admin" target="_blank">Admin</a>}
+            <div style="color: #f66;">
+            {<a style="color: #faa;" href="/_ah/admin" target="_blank">Admin</a>}
             <br>
-            {<a href="/?action=fix">map-over-entities</a>}
+            {<a style="color: #faa;" href="/?action=fix">map-over-entities</a>}
             <br>
-            {<a href="/task/notify">/task/notify</a>}
+            {<a style="color: #faa;" href="/task/notify">/task/notify</a>}
             <br>
+            </div>
       """)
 
     q = self.request.get("q")

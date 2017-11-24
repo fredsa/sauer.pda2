@@ -2,8 +2,8 @@
 #
 set -ue
 
-VERSION=$(git log -1 --pretty=format:%H)
-if [ -n "$(git status --porcelain)" ]
+VERSION="$( git log -1 --pretty=format:%H )"
+if [ -n "$( git status --porcelain )" ]
 then
   VERSION="dirty-$VERSION"
 fi
@@ -13,17 +13,17 @@ echo
 echo -e "Hit [ENTER] to continue: \c"
 read
 
-SCRIPTS_DIR=$( dirname $0 )
-ROOT_DIR=$( dirname $SCRIPTS_DIR )
+SCRIPTS_DIR="$( dirname $0 )"
+ROOT_DIR="$( dirname $SCRIPTS_DIR )"
 
-APPCFG=$(which appcfg.py) \
-  || (echo "ERROR: appcfg.py must be in your PATH"; exit 1)
-while [ -L $APPCFG ]
+GCLOUD="$(which gcloud)" \
+  || (echo "ERROR: gcloud must be in your PATH"; exit 1)
+while [ -L "$GCLOUD" ]
 do
-  APPCFG=$(readlink $APPCFG)
+  GCLOUD="$(readlink $GCLOUD)"
 done
 
-BIN_DIR=$(dirname $APPCFG)
+BIN_DIR="$(dirname $GCLOUD)"
 
 if [ "$(basename $BIN_DIR)" == "bin" ]
 then
@@ -36,33 +36,12 @@ else
   SDK_HOME=$BIN_DIR
 fi
 
-function get_app_id() {
-  local app_id
-  app_id=$( cat $ROOT_DIR/app.yaml | egrep '^application:' | sed 's/application: *\([0-9a-z][-0-9a-z]*[0-9a-z]\).*/\1/' )
-  while [ $# -gt 0 ]
-  do
-    if [ "$1" == "-A" ]
-    then
-      shift
-      app_id=$1
-    elif [ "${1/=*/}" == "--application" ]
-    then
-      app_id=${1/--application=/}
-    fi
-    shift
-  done
-  echo $app_id
-}
-
-APP_ID=$(get_app_id $*)
+PROJECT=sauer-pda
 echo
-echo "Using app id: $APP_ID"
-
-echo -e "\n*** Rolling back any pending updates (just in case) ***\n"
-appcfg.py --oauth2 $* rollback .
+echo "Using project: ${PROJECT}"
 
 echo -e "\n*** DEPLOYING ***\n"
-appcfg.py --oauth2 update -V $VERSION -A $APP_ID .
+$GCLOUD --project "${PROJECT}" app deploy --version "${VERSION}"
 
 echo -e "\n*** SETTING DEFAULT VERSION ***\n"
-appcfg.py --oauth2 set_default_version -V $VERSION -A $APP_ID .
+$GCLOUD --project "${PROJECT}" app versions migrate "${VERSION}"

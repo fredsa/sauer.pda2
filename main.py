@@ -777,7 +777,7 @@ class Thing(db.Model):
               "comments",
               "enabled",
               "words",
-               ];
+               ]
 
   def props(self):
     for propname in self.propnames:

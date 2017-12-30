@@ -168,9 +168,12 @@ class MainHandler(webapp.RequestHandler):
           <!DOCTYPE html>
           <html>
           <head>
-            <meta name="viewport" content="initial-scale=1.0">
+            <meta name="viewport" content="width=device-width,initial-scale=1.0">
             <title>PDA2</title>
             <style type="text/css">
+              input[type=text],textarea {
+                background-color: #eff9fb;
+              }
               body {
                 line-height: 1.3em;
               }

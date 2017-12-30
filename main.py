@@ -542,7 +542,8 @@ class MainHandler(webapp.RequestHandler):
       props = Person.properties()
       self.formFields(person)
       self.response.out.write("""<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>""")
-      propname = props.keys()[0]
+      # propname = props.keys()[0]
+      propname = "category"
       self.response.out.write("""
           </table>
           </form>

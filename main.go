@@ -133,86 +133,87 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		//     for person in sorted(s, key=Thing.key):
 		//       #self.response.out.write("person = %s<br><br>" % person)
 		//       self.personView(person)
-	} else if action == "create" {
-		// if kind == "Person" {
-		// 	personForm(Person())
-		// } else if kind == "Contact" {
-		// 	contactForm(Contact())
-		// } else if kind == "Address" {
-		// 	addressForm(Address())
-		// } else if kind == "Calendar" {
-		// 	calendarForm(Calendar())
-		// }
-	} else if action == "view" {
+	} else {
 		switch action {
+		case "create":
+			// if kind == "Person" {
+			// 	personForm(Person())
+			// } else if kind == "Contact" {
+			// 	contactForm(Contact())
+			// } else if kind == "Address" {
+			// 	addressForm(Address())
+			// } else if kind == "Calendar" {
+			// 	calendarForm(Calendar())
+			// }
 		case "view":
-			p, err := requestToPerson(r, client)
+			entity, err := requestToRootEntity(r, client)
 			if err != nil {
 				log.Fatalf("Unable to convert request to person: %v", err)
 			}
-			renderPersonView(w, client, p)
+			renderPersonView(w, client, entity)
+		case "edit":
+			entity, err := requestToEntity(r, client)
+			if err != nil {
+				log.Fatalf("Unable to convert request to entity: %v", err)
+			}
+			switch entity.Key.Kind {
+			case "Person":
+				renderPersonView(w, client, entity)
+			case "Contact":
+				renderContactView(w, entity)
+			case "Address":
+				renderAddressView(w, entity)
+			case "Calendar":
+				renderCalendarView(w, entity)
+			default:
+				log.Fatalf("Unknown kind: %s", entity.Key.Kind)
+			}
+
+			// if kind == "Person" {
+			// 	person = self.requestToPerson(self.request)
+			// 	if modified {
+			// 		self.personView(person)
+			// 	} else {
+			// 		self.personForm(person)
+			// 	}
+			// } else if kind == "Contact" {
+			// 	contact = self.requestToContact(self.request)
+			// 	if modified {
+			// 		person = db.get(contact.key().parent())
+			// 		self.personView(person)
+			// 	} else {
+			// 		self.contactForm(contact)
+			// 	}
+			// } else if kind == "Address" {
+			// 	address = self.requestToAddress(self.request)
+			// 	if modified {
+			// 		person = db.get(address.key().parent())
+			// 		self.personView(person)
+			// 	} else {
+			// 		self.addressForm(address)
+			// 	}
+			// } else if kind == "Calendar" {
+			// 	calendar = self.requestToCalendar(self.request)
+			// 	if modified {
+			// 		person = db.get(calendar.key().parent())
+			// 		self.personView(person)
+			// 	} else {
+			// 		self.calendarForm(calendar)
+			// 	}
+			// }
+		case "fix":
+			// count = 0
+			// query = db.Query(keys_only == True)
+			// for key := range query {
+			// 	count += 1
+			// 	if key.kind().startswith('_') {
+			// 		continue
+			// 	}
+			// 	//       taskqueue.add(url='/', params={'fix': key})
+			// 	log.Printf("%s: %s", count, key)
+			// }
+			// fmt.Fprintf(w, `DONE<br>`)
 		}
-		// if kind == "Person" {
-		// 	person = self.requestToPerson(self.request)
-		// 	self.personView(person)
-		// } else if kind == "Contact" {
-		// 	contact = self.requestToContact(self.request)
-		// 	person = db.get(contact.key().parent())
-		// 	self.personView(person)
-		// } else if kind == "Address" {
-		// 	address = self.requestToAddress(self.request)
-		// 	person = db.get(address.key().parent())
-		// 	self.personView(person)
-		// } else if kind == "Calendar" {
-		// 	calendar = self.requestToCalendar(self.request)
-		// 	person = db.get(calendar.key().parent())
-		// 	self.personView(person)
-		// }
-	} else if action == "edit" {
-		// if kind == "Person" {
-		// 	person = self.requestToPerson(self.request)
-		// 	if modified {
-		// 		self.personView(person)
-		// 	} else {
-		// 		self.personForm(person)
-		// 	}
-		// } else if kind == "Contact" {
-		// 	contact = self.requestToContact(self.request)
-		// 	if modified {
-		// 		person = db.get(contact.key().parent())
-		// 		self.personView(person)
-		// 	} else {
-		// 		self.contactForm(contact)
-		// 	}
-		// } else if kind == "Address" {
-		// 	address = self.requestToAddress(self.request)
-		// 	if modified {
-		// 		person = db.get(address.key().parent())
-		// 		self.personView(person)
-		// 	} else {
-		// 		self.addressForm(address)
-		// 	}
-		// } else if kind == "Calendar" {
-		// 	calendar = self.requestToCalendar(self.request)
-		// 	if modified {
-		// 		person = db.get(calendar.key().parent())
-		// 		self.personView(person)
-		// 	} else {
-		// 		self.calendarForm(calendar)
-		// 	}
-		// }
-	} else if action == "fix" {
-		// count = 0
-		// query = db.Query(keys_only == True)
-		// for key := range query {
-		// 	count += 1
-		// 	if key.kind().startswith('_') {
-		// 		continue
-		// 	}
-		// 	//       taskqueue.add(url='/', params={'fix': key})
-		// 	log.Printf("%s: %s", count, key)
-		// }
-		// fmt.Fprintf(w, `DONE<br>`)
 	}
 
 	renderPostamble(w, u, q)

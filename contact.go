@@ -5,36 +5,9 @@ import (
 	"html"
 	"io"
 	"strings"
-
-	"cloud.google.com/go/datastore"
 )
 
-type Contact struct {
-	Key *datastore.Key `datastore:"__key__"`
-
-	ContactMethod string `datastore:"contact_method,noindex"`
-	ContactType   string `datastore:"contact_type,noindex"`
-	ContactText   string `datastore:"contact_text,noindex"`
-
-	Comments string   `datastore:"comments,noindex"`
-	Enabled  bool     `datastore:"enabled,noindex"`
-	Words    []string `datastore:"words,noindex"`
-}
-
-func (contact *Contact) enabledText() string {
-	return enabledText(contact.Enabled)
-}
-
-func (contact *Contact) editUrl() string {
-	// Include origin for a fully qualified URL.
-	return fmt.Sprintf("%s/?action=edit&kind=%s&key=%s",
-		defaultVersionOrigin,
-		contact.Key.Kind,
-		contact.Key.Encode(),
-	)
-}
-
-func renderContactView(w io.Writer, contact *Contact) {
+func renderContactView(w io.Writer, contact *Entity) {
 	text := html.EscapeString(contact.ContactText)
 	if strings.HasPrefix(text, "http") {
 		text = fmt.Sprintf(`

@@ -3,38 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
-	"time"
 
-	"cloud.google.com/go/datastore"
 	"golang.org/x/net/html"
 )
 
-type Calendar struct {
-	Key *datastore.Key `datastore:"__key__"`
-
-	FirstOccurrence time.Time `datastore:"first_occurrence,noindex"`
-	Frequency       string    `datastore:"frequency,noindex"`
-	Occasion        string    `datastore:"occasion,noindex"`
-
-	Comments string   `datastore:"comments,noindex"`
-	Enabled  bool     `datastore:"enabled,noindex"`
-	Words    []string `datastore:"words,noindex"`
-}
-
-func (calendar *Calendar) enabledText() string {
-	return enabledText(calendar.Enabled)
-}
-
-func (calendar *Calendar) editUrl() string {
-	// Include origin for a fully qualified URL.
-	return fmt.Sprintf("%s/?action=edit&kind=%s&key=%s",
-		defaultVersionOrigin,
-		calendar.Key.Kind,
-		calendar.Key.Encode(),
-	)
-}
-
-func renderCalendarView(w io.Writer, calendar *Calendar) {
+func renderCalendarView(w io.Writer, calendar *Entity) {
 	clazz := ""
 	if !calendar.Enabled {
 		clazz = "disabled"

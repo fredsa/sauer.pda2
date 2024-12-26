@@ -1,8 +1,0 @@
-mapreduce:
-- name: migrate
-  mapper:
-    input_reader: mapreduce.input_readers.DatastoreInputReader
-    handler: main.migrate
-    params:
-    - name: entity_kind
-      default: main.Person

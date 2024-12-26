@@ -138,7 +138,7 @@ class MainHandler(webapp.RequestHandler):
       self.response.headers.add_header('Content-Type', 'text/json')
       self.response.headers.add_header('Content-Language', 'en-US')
       for person in Person.all():
-        entity = to_dict(person)
+        entity = to_dict(person)  
         for kind in [Address, Calendar, Contact]:
           for child in kind.all():
             entity[kind.kind()] = to_dict(child)

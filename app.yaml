@@ -1,12 +1,16 @@
-runtime: python27
-api_version: 1
-threadsafe: true
+# https://cloud.google.com/appengine/docs/standard/reference/app-yaml?tab=go
+runtime: go123
 
 builtins:
+# Enable '/_ah/stats'
 - appstats: on
-- remote_api: on
+# Redirect `/_ah/admin` to Cloud Console
 - admin_redirect: on
+# https://cloud.google.com/appengine/docs/standard/reference/app-yaml?tab=go#runtime_and_app_elements
+- app_engine_apis: on
+#- remote_api: on
 
+# https://cloud.google.com/appengine/docs/standard/services/overview?tab=go
 inbound_services:
 - mail
 
@@ -14,24 +18,23 @@ handlers:
 - url: /favicon\.ico
   static_files: favicon.ico
   upload: favicon\.ico
-
-- url: /apple-touch-icon.png
-  static_files: favicon.ico
-  upload: favicon\.ico
-
-- url: /apple-touch-icon-precomposed.png
-  static_files: favicon.ico
-  upload: favicon\.ico
-
-- url: /stats.*
-  script: google.appengine.ext.appstats.ui.app
   login: admin
+  secure: always
 
-- url: /_ah/mail/.+
-  script: main.application
-  login: admin
+# - url: /stats.*
+#   script: google.appengine.ext.appstats.ui.app
+#   login: admin
+
+# - url: /_ah/mail/.+
+#   script: main.application
+#   login: admin
+
+# - url: /.*
+#   script: main.application
+#   login: admin
+#   secure: always
 
 - url: /.*
-  script: main.application
+  script: auto
   login: admin
   secure: always

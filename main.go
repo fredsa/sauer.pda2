@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -59,6 +60,36 @@ func enabledText(enabled bool) string {
 		return "enabled"
 	} else {
 		return "DISABLED"
+	}
+}
+
+func renderView(w io.Writer, client *datastore.Client, entity *Entity) {
+	switch entity.Key.Kind {
+	case "Person":
+		renderPersonView(w, client, entity)
+	case "Contact":
+		renderContactView(w, entity)
+	case "Address":
+		renderAddressView(w, entity)
+	case "Calendar":
+		renderCalendarView(w, entity)
+	default:
+		log.Fatalf("Unknown kind: %s", entity.Key.Kind)
+	}
+}
+
+func renderForm(w io.Writer, client *datastore.Client, entity *Entity) {
+	switch entity.Key.Kind {
+	case "Person":
+		renderPersonForm(w, client, entity)
+	case "Contact":
+		renderContactForm(w, entity)
+	case "Address":
+		renderAddressForm(w, entity)
+	case "Calendar":
+		renderCalendarForm(w, entity)
+	default:
+		log.Fatalf("Unknown kind: %s", entity.Key.Kind)
 	}
 }
 
@@ -161,18 +192,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 					Kind: kind,
 				},
 			}
-			switch kind {
-			case "Person":
-				renderPersonForm(w, client, &entity)
-			case "Contact":
-				renderContactForm(w, &entity)
-			case "Address":
-				renderAddressForm(w, &entity)
-			case "Calendar":
-				renderCalendarForm(w, &entity)
-			default:
-				log.Fatalf("Unknown kind: %s", kind)
-			}
+			renderForm(w, client, &entity)
 		case "view":
 			entity, err := requestToRootEntity(r, client)
 			if err != nil {
@@ -184,67 +204,12 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Fatalf("Unable to convert request to entity: %v", err)
 			}
-			switch entity.Key.Kind {
-			case "Person":
-				if modified {
-					renderPersonView(w, client, entity)
-				} else {
-					renderPersonForm(w, client, entity)
-				}
-			case "Contact":
-				if modified {
-					renderContactView(w, entity)
-				} else {
-					renderContactForm(w, entity)
-				}
-			case "Address":
-				if modified {
-					renderAddressView(w, entity)
-				} else {
-					renderAddressForm(w, entity)
-				}
-			case "Calendar":
-				if modified {
-					renderCalendarView(w, entity)
-				} else {
-					renderCalendarForm(w, entity)
-				}
-			default:
-				log.Fatalf("Unknown kind: %s", entity.Key.Kind)
-			}
 
-			// if kind == "Person" {
-			// 	person = self.requestToPerson(self.request)
-			// 	if modified {
-			// 		self.personView(person)
-			// 	} else {
-			// 		self.personForm(person)
-			// 	}
-			// } else if kind == "Contact" {
-			// 	contact = self.requestToContact(self.request)
-			// 	if modified {
-			// 		person = db.get(contact.key().parent())
-			// 		self.personView(person)
-			// 	} else {
-			// 		self.contactForm(contact)
-			// 	}
-			// } else if kind == "Address" {
-			// 	address = self.requestToAddress(self.request)
-			// 	if modified {
-			// 		person = db.get(address.key().parent())
-			// 		self.personView(person)
-			// 	} else {
-			// 		self.addressForm(address)
-			// 	}
-			// } else if kind == "Calendar" {
-			// 	calendar = self.requestToCalendar(self.request)
-			// 	if modified {
-			// 		person = db.get(calendar.key().parent())
-			// 		self.personView(person)
-			// 	} else {
-			// 		self.calendarForm(calendar)
-			// 	}
-			// }
+			if modified {
+				renderView(w, client, entity)
+			} else {
+				renderForm(w, client, entity)
+			}
 		case "fix":
 			// count = 0
 			// query = db.Query(keys_only == True)

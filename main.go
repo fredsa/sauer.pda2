@@ -86,7 +86,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query().Get("q")
 	action := r.URL.Query().Get("action")
-	// kind := r.URL.Query().Get("kind")
+	kind := r.URL.Query().Get("kind")
 	modified := r.URL.Query().Get("modified") == "true"
 
 	renderPremable(w, u, q)
@@ -156,15 +156,23 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		switch action {
 		case "create":
-			// if kind == "Person" {
-			// 	personForm(Person())
-			// } else if kind == "Contact" {
-			// 	contactForm(Contact())
-			// } else if kind == "Address" {
-			// 	addressForm(Address())
-			// } else if kind == "Calendar" {
-			// 	calendarForm(Calendar())
-			// }
+			entity := Entity{
+				Key: &datastore.Key{
+					Kind: kind,
+				},
+			}
+			switch kind {
+			case "Person":
+				renderPersonForm(w, client, &entity)
+			case "Contact":
+				renderContactForm(w, &entity)
+			case "Address":
+				renderAddressForm(w, &entity)
+			case "Calendar":
+				renderCalendarForm(w, &entity)
+			default:
+				log.Fatalf("Unknown kind: %s", kind)
+			}
 		case "view":
 			entity, err := requestToRootEntity(r, client)
 			if err != nil {

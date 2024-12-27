@@ -136,13 +136,13 @@ func formFields(w io.Writer, entity *Entity) {
 
 func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {
 	fmt.Fprintf(w, `
-	<hr>
-	<form name="personform" method="post" action=".">
-	<input type="hidden" name="action" value="edit">
-	<input type="hidden" name="kind" value="%s">
-	<input type="hidden" name="modified" value="true">
-	<input type="hidden" name="key" value="%s">
-	<table>
+		<hr>
+		<form name="personform" method="post" action=".">
+			<input type="hidden" name="action" value="edit">
+			<input type="hidden" name="kind" value="%s">
+			<input type="hidden" name="modified" value="true">
+			<input type="hidden" name="key" value="%s">
+			<table>
 	`, person.Key.Kind, person.maybeKey())
 
 	formFields(w, person)
@@ -151,10 +151,10 @@ func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {
 	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>`)
 	propname := "category"
 	fmt.Fprintf(w, `
-		</table>
+			</table>
 		</form>
 		<script>
-		document.personform.%s.focus();
+			document.personform.%s.focus();
 		</script>
 		<hr>
 `, propname)

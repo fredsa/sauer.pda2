@@ -33,7 +33,7 @@ func main() {
 
 	if isDev {
 		port = "4200"
-		defaultVersionOrigin = "http://localhost:8080"
+		defaultVersionOrigin = "http://localhost:" + port
 		_ = os.Setenv(GAE_APPLICATION, "my-app-id")
 		_ = os.Setenv(GAE_RUNTIME, "go123456")
 		_ = os.Setenv(GAE_VERSION, "my-version")
@@ -87,7 +87,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	action := r.URL.Query().Get("action")
 	// kind := r.URL.Query().Get("kind")
-	// modified := r.URL.Query().Get("modified")
+	modified := r.URL.Query().Get("modified") == "true"
 
 	renderPremable(w, u, q)
 
@@ -96,6 +96,26 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Failed to create client: %v", err)
 	}
 	defer client.Close()
+
+	// k := datastore.NameKey("Foo", "fookey", nil)
+	// foo := &Entity{
+	// 	City:     "foocity",
+	// 	Comments: "foocomments" + strings.Repeat("x", 10000),
+	// }
+	// client.Put(ctx, k, foo)
+
+	// k := datastore.IDKey("Person", 1001, nil)
+	// var e Entity
+	// client.Get(ctx, k, &e)
+	// log.Printf("e.CompanyName=%v", e.CompanyName)
+	// log.Printf("e.Comments=%v", e.Comments)
+
+	// k = datastore.IDKey("Foo", 1001, nil)
+	// client.Put(ctx, k, &e)
+	// e = Entity{}
+	// client.Get(ctx, k, &e)
+	// log.Printf("e.CompanyName=%v", e.CompanyName)
+	// log.Printf("e.Comments=%v", e.Comments)
 
 	if q != "" {
 		//   qlist = re.split('\W+', q.lower())
@@ -158,13 +178,29 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			switch entity.Key.Kind {
 			case "Person":
-				renderPersonView(w, client, entity)
+				if modified {
+					renderPersonView(w, client, entity)
+				} else {
+					renderPersonForm(w, client, entity)
+				}
 			case "Contact":
-				renderContactView(w, entity)
+				if modified {
+					renderContactView(w, entity)
+				} else {
+					renderContactForm(w, entity)
+				}
 			case "Address":
-				renderAddressView(w, entity)
+				if modified {
+					renderAddressView(w, entity)
+				} else {
+					renderAddressForm(w, entity)
+				}
 			case "Calendar":
-				renderCalendarView(w, entity)
+				if modified {
+					renderCalendarView(w, entity)
+				} else {
+					renderCalendarForm(w, entity)
+				}
 			default:
 				log.Fatalf("Unknown kind: %s", entity.Key.Kind)
 			}

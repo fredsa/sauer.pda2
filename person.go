@@ -1,12 +1,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"html"
 	"io"
 	"log"
-	"net/http"
+	"reflect"
 	"time"
 
 	"cloud.google.com/go/datastore"
@@ -20,107 +19,6 @@ var categories = []string{
 	"Services by Individuals",
 	"Companies, Institutions, etc.",
 	"Business Relations",
-}
-
-type Entity struct {
-	Key *datastore.Key `datastore:"__key__"`
-
-	// Common fields.
-	Comments string   `datastore:"comments,noindex"`
-	Enabled  bool     `datastore:"enabled,noindex"`
-	Words    []string `datastore:"words,noindex"`
-
-	// Person kind.
-	Category    string `datastore:"category,noindex"`
-	SendCard    bool   `datastore:"send_card,noindex"`
-	Title       string `datastore:"title,noindex"`
-	MailingName string `datastore:"mailing_name,noindex"`
-	FirstName   string `datastore:"first_name,noindex"`
-	LastName    string `datastore:"last_name,noindex"`
-	CompanyName string `datastore:"company_name,noindex"`
-
-	// Address kind.
-	AddressType   string `datastore:"address_type,noindex"`
-	AddressLine1  string `datastore:"address_line1,noindex"`
-	AddressLine2  string `datastore:"address_line2,noindex"`
-	City          string `datastore:"city,noindex"`
-	StateProvince string `datastore:"state_province,noindex"`
-	PostalCode    string `datastore:"postal_code,noindex"`
-	Country       string `datastore:"country,noindex"`
-	Directions    string `datastore:"directions,noindex"`
-
-	// Contact kind.
-	ContactMethod string `datastore:"contact_method,noindex"`
-	ContactType   string `datastore:"contact_type,noindex"`
-	ContactText   string `datastore:"contact_text,noindex"`
-
-	// Calendar kind.
-	FirstOccurrence time.Time `datastore:"first_occurrence,noindex"`
-	Frequency       string    `datastore:"frequency,noindex"`
-	Occasion        string    `datastore:"occasion,noindex"`
-}
-
-func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity, err error) {
-	// kind := r.URL.Query().Get("kind")
-	key := r.URL.Query().Get("key")
-	dbkey, err := datastore.DecodeKey(key)
-	var e Entity
-	err = client.Get(ctx, dbkey, &e)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey.Kind, err))
-	}
-	return &e, nil
-}
-
-func requestToRootEntity(r *http.Request, client *datastore.Client) (entity *Entity, err error) {
-	e, err := requestToEntity(r, client)
-	if err != nil {
-		return nil, err
-	}
-
-	if e.Key.Kind == "Person" {
-		return e, nil
-	} else {
-		var person Entity
-		err = client.Get(ctx, e.Key.Parent, &person)
-		if err != nil {
-			log.Fatalf("Failed to get parent for %s: %v", e.Key.Kind, err)
-		}
-		return &person, nil
-	}
-}
-
-func (person *Entity) enabledText() string {
-	return enabledText(person.Enabled)
-}
-
-func (person *Entity) editUrl() string {
-	// Include origin for a fully qualified URL.
-	return fmt.Sprintf("%s/?action=edit&kind=%s&key=%s",
-		defaultVersionOrigin,
-		person.Key.Kind,
-		person.Key.Encode(),
-	)
-}
-
-func (person *Entity) displayName() string {
-	t := ""
-	if person.MailingName != "" {
-		t += fmt.Sprintf("[%s] ", person.MailingName)
-	}
-	if person.CompanyName != "" {
-		t += fmt.Sprintf("%s ", person.CompanyName)
-	}
-	if person.Title != "" {
-		t += person.Title + " "
-	}
-	if person.FirstName != "" {
-		t += person.FirstName + " "
-	}
-	if person.LastName != "" {
-		t += person.LastName
-	}
-	return t
 }
 
 func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
@@ -173,4 +71,100 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
 
 	fmt.Fprintf(w, `
 		</div>`)
+}
+
+func formFields(w io.Writer, entity *Entity) {
+	t := reflect.TypeOf(entity).Elem()
+	v := reflect.ValueOf(entity).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		forkind := field.Tag.Get("forkind")
+		if forkind != "" && forkind != entity.Key.Kind {
+			// fmt.Fprintf(w, `<tr><td style="vertical-align: top; text-align: right;">SKIP:::  forkind=%s!=%s</td><td>%s=%s</td></tr>`, forkind, entity.Key.Kind, field.Name, value)
+			continue
+		}
+
+		label := field.Name
+		html := "?"
+		color := "pink"
+		if field.Tag.Get("form") == "textarea" {
+			html = fmt.Sprintf(`<textarea name="%s" style="width: 50em; height: 20em; font-family: monospace;">%s</textarea>`, field.Name, value)
+		} else if field.Type.Kind() == reflect.String {
+			html = fmt.Sprintf(`<input type="text" style="width: 50em;" name="%s" value="%s">`, field.Name, value)
+		} else if field.Type.Kind() == reflect.Bool {
+			checked := ""
+			if value.Bool() {
+				checked = "checked"
+			}
+			html = fmt.Sprintf(`<input type="checkbox" name="%s" %s> %s`, field.Name, checked, label)
+			label = ""
+		} else if field.Type == reflect.TypeOf(time.Time{}) {
+			datevalue := value.Interface().(time.Time)
+			date := ""
+			if !datevalue.IsZero() {
+				date = datevalue.Format("2006-01-02")
+			}
+			html = fmt.Sprintf(`<input type="text" style="width: 8em;" name="%s" value="%s">`, field.Name, date)
+		} else {
+			html = fmt.Sprintf("<div>%v %v=%v</div>", field.Type, label, value)
+		}
+
+		if field.Name == "words" {
+			color = "red"
+		} else {
+			color = "blue"
+		}
+		fmt.Fprintf(w, `<tr><td style="vertical-align: top; text-align: right; color: %s;">%s</td><td>%s</td></tr>`, color, label, html)
+
+	}
+
+	//	  if isinstance(prop, SelectableStringProperty):
+	//		values = prop.choices
+	//		html = `<select name="%s" size="%s">` % (propname, len(values))
+	//		for v in values:
+	//		  selected = "selected" if value == v else ""
+	//		  html += `<option %s value="%s">%s</option>` % (selected, v, v)
+	//		html += `</select>`
+	//	  elif isinstance(prop, db.StringListProperty):
+	//		#html = `<textarea name="%s" style="width: 50em; height: 4em; color: gray;">%s</textarea>` % (propname, ", ".join(value))
+	//		html = `<code style="color:#ddd;">%s</code>` % " ".join(value)
+	//	  else:
+	//		html = `<span style="color:red;">** Unknown property type '%s' for '%s' **</span>` % (prop.__class__.__name__, propname)
+}
+
+func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {
+	fmt.Fprintf(w, `
+	<hr>
+	<form name="personform" method="post" action=".">
+	<input type="hidden" name="action" value="edit">
+	<input type="hidden" name="kind" value="%s">
+	<input type="hidden" name="modified" value="true">
+	<input type="hidden" name="key" value="%s">
+	<table>
+	`, person.Key.Kind, person.maybeKey())
+
+	formFields(w, person)
+	// props = Person.properties()
+	// self.formFields(person)
+	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>`)
+	propname := "category"
+	fmt.Fprintf(w, `
+		</table>
+		</form>
+		<script>
+		document.personform.%s.focus();
+		</script>
+		<hr>
+`, propname)
+	if person.maybeKey() != "" {
+		fmt.Fprintf(w, `
+			<a href="?action=create&kind=Contact&parent_key=%s">[+Contact]</a>
+			&nbsp;
+			<a href="?action=create&kind=Address&parent_key=%s">[+Address]</a>
+			&nbsp;
+			<a href="?action=create&kind=Calendar&parent_key=%s">[+Calendar]</a>
+	  	`, person.Key.Encode(), person.Key.Encode(), person.Key.Encode())
+	}
 }

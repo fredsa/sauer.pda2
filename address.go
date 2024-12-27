@@ -29,13 +29,13 @@ func renderAddressView(w io.Writer, address *Entity) {
 	}
 	fmt.Fprintf(w, `
 		<div class="%s">
-		<a href="%s" class="edit-link">Edit</a>
+			<a href="%s" class="edit-link">Edit</a>
 
-		<span class="thing %s">%s</span>
-		<a href="%s" target="_blank">[Google Maps]</a>&nbsp;&nbsp;<a href="%s" target="_blank">[directions]</a>
-		<span class="tag" target="_blank">(%s) [%s]</span><br>
+			<span class="thing %s">%s</span>
+			<a href="%s" target="_blank">[Google Maps]</a></a>
+			<span class="tag" target="_blank">(%s) [%s]</span><br>
 
-		<div class="comments">%s</div>
+			<div class="comments">%s</div>
 		</div>
 	`,
 		clazz,
@@ -47,7 +47,27 @@ func renderAddressView(w io.Writer, address *Entity) {
 		address.AddressType,
 		address.enabledText(),
 
-		html.EscapeString(address.Directions),
 		html.EscapeString(address.Comments),
 	)
+}
+
+func renderAddressForm(w io.Writer, address *Entity) {
+	fmt.Fprintf(w, `
+		<hr>
+		<form name="addressform" method="post" action=".">
+		<input type="hidden" name="action" value="edit">
+		<input type="hidden" name="kind" value="%s">
+		<input type="hidden" name="modified" value="true">
+		<input type="hidden" name="key" value="%s">
+		<input type="hidden" name="parent_key" value="%s">
+		<table>
+	`, address.Key.Kind, address.maybeKey(), address.Key.Parent.Encode())
+
+	formFields(w, address)
+	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>`)
+	fmt.Fprintf(w, `
+		</table>
+		</form>
+		<hr>
+	`)
 }

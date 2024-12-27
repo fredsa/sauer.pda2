@@ -24,14 +24,11 @@ func renderPremable(w io.Writer, u *user.User, q string) {
 				line-height: 1.3em;
 				background-color: #e7f4ff;
 			}
-			.comments , .directions {
+			.comments {
 				font-family: monospace;
 				color: #c44;
 				white-space: pre;
 				padding-bottom: 2em;
-			}
-			.directions {
-				color: #444;
 			}
 			.tag {
 				font-size: small;

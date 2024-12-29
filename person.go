@@ -5,8 +5,6 @@ import (
 	"html"
 	"io"
 	"log"
-	"reflect"
-	"time"
 
 	"cloud.google.com/go/datastore"
 )
@@ -71,67 +69,6 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
 
 	fmt.Fprintf(w, `
 		</div>`)
-}
-
-func formFields(w io.Writer, entity *Entity) {
-	t := reflect.TypeOf(entity).Elem()
-	v := reflect.ValueOf(entity).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		value := v.Field(i)
-
-		forkind := field.Tag.Get("forkind")
-		if forkind != "" && forkind != entity.Key.Kind {
-			// fmt.Fprintf(w, `<tr><td style="vertical-align: top; text-align: right;">SKIP:::  forkind=%s!=%s</td><td>%s=%s</td></tr>`, forkind, entity.Key.Kind, field.Name, value)
-			continue
-		}
-
-		label := field.Name
-		html := "?"
-		color := "pink"
-		if field.Tag.Get("form") == "textarea" {
-			html = fmt.Sprintf(`<textarea name="%s" style="width: 50em; height: 20em; font-family: monospace;">%s</textarea>`, field.Name, value)
-		} else if field.Type.Kind() == reflect.String {
-			html = fmt.Sprintf(`<input type="text" style="width: 50em;" name="%s" value="%s">`, field.Name, value)
-		} else if field.Type.Kind() == reflect.Bool {
-			checked := ""
-			if value.Bool() {
-				checked = "checked"
-			}
-			html = fmt.Sprintf(`<input type="checkbox" name="%s" %s> %s`, field.Name, checked, label)
-			label = ""
-		} else if field.Type == reflect.TypeOf(time.Time{}) {
-			datevalue := value.Interface().(time.Time)
-			date := ""
-			if !datevalue.IsZero() {
-				date = datevalue.Format("2006-01-02")
-			}
-			html = fmt.Sprintf(`<input type="text" style="width: 8em;" name="%s" value="%s">`, field.Name, date)
-		} else {
-			html = fmt.Sprintf("<div>%v %v=%v</div>", field.Type, label, value)
-		}
-
-		if field.Name == "words" {
-			color = "red"
-		} else {
-			color = "blue"
-		}
-		fmt.Fprintf(w, `<tr><td style="vertical-align: top; text-align: right; color: %s;">%s</td><td>%s</td></tr>`, color, label, html)
-
-	}
-
-	//	  if isinstance(prop, SelectableStringProperty):
-	//		values = prop.choices
-	//		html = `<select name="%s" size="%s">` % (propname, len(values))
-	//		for v in values:
-	//		  selected = "selected" if value == v else ""
-	//		  html += `<option %s value="%s">%s</option>` % (selected, v, v)
-	//		html += `</select>`
-	//	  elif isinstance(prop, db.StringListProperty):
-	//		#html = `<textarea name="%s" style="width: 50em; height: 4em; color: gray;">%s</textarea>` % (propname, ", ".join(value))
-	//		html = `<code style="color:#ddd;">%s</code>` % " ".join(value)
-	//	  else:
-	//		html = `<span style="color:red;">** Unknown property type '%s' for '%s' **</span>` % (prop.__class__.__name__, propname)
 }
 
 func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {

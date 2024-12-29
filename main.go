@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
+	"strings"
 
 	"cloud.google.com/go/datastore"
 	"google.golang.org/appengine/v2"
@@ -93,10 +96,27 @@ func renderForm(w io.Writer, client *datastore.Client, entity *Entity) {
 	}
 }
 
+func getValue(r *http.Request, name string) string {
+	value := r.URL.Query().Get(name)
+	if value == "" {
+		value = r.Form.Get(name)
+	}
+	return value
+}
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
+	}
+
+	if r.Method == "POST" {
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			// log.Fatalf("Error parsing form: %v", err)
+			return
+		}
 	}
 
 	u := user.Current(ctx)
@@ -115,11 +135,15 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	q := r.URL.Query().Get("q")
-	action := r.URL.Query().Get("action")
-	kind := r.URL.Query().Get("kind")
-	modified := r.URL.Query().Get("modified") == "true"
+	q := getValue(r, "q")
+	action := getValue(r, "action")
+	kind := getValue(r, "kind")
+	modified := getValue(r, "modified") == "true"
 
+	fmt.Fprintf(w, "<div>q=%v</div>", q)
+	fmt.Fprintf(w, "<div>action=%v</div>", action)
+	fmt.Fprintf(w, "<div>kind=%v</div>", kind)
+	fmt.Fprintf(w, "<div>modified=%v</div>", modified)
 	renderPremable(w, u, q)
 
 	client, err := datastore.NewClient(ctx, projectID)
@@ -149,41 +173,33 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// log.Printf("e.Comments=%v", e.Comments)
 
 	if q != "" {
-		//   qlist = re.split('\W+', q.lower())
-		//   if '' in qlist:
-		//     qlist.remove('')
-		//   results = None
-		//   for qword in qlist:
-		//     word_results = set([])
-		//     for kind in [Person, Address, Calendar, Contact]:
-		//       query = db.Query(kind, keys_only=True)
-		//       query.filter("words >=", qword)
-		//       query.filter("words <=", qword + "~")
-		//       word_results = word_results | set([x.parent() or x for x in query])
-		//       #self.response.out.write("word_results = %s<br><br>" % word_results)
-		//     if results is None:
-		//       #self.response.out.write("results is None<br>")
-		//       results = word_results
-		//     else:
-		//       results = results & word_results
-		//     #self.response.out.write("results = %s<br><br>" % results
-		//     self.response.out.write("%s result(s) matching <code>%s</code><br>" % (len(word_results), qword))
+		keys := []*datastore.Key{}
+		q = strings.TrimSpace(strings.ToLower(q))
+		qlist := regexp.MustCompile(`\s+`).Split(q, -1)
+		for _, qword := range qlist {
+			for _, kind := range kinds {
+				query := datastore.NewQuery(kind)
+				query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: ">=", Value: qword})
+				query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: "<=", Value: qword + "~"})
+				query = query.KeysOnly()
+				ks, err := client.GetAll(ctx, query, Entity{})
+				if err != nil {
+					log.Fatalf("Failed to fetch keys for kind %s, word %s: %v", kind, qword, err)
+				}
+				log.Printf("kind=%s, qword=%s, ks=%q", kind, qword, ks)
+				keys = append(keys, ks...)
+			}
+		}
 
-		//   keys = list(results)
-		//   if (len(qlist) > 1):
-		//     self.response.out.write("===> %s result(s) matching <code>%s</code><br>" % (len(keys), " ".join(qlist)))
-		//   while (keys):
-		//     # Max 30 keys allow in IN clause
-		//     somekeys = keys[:30]
-		//     keys = keys[30:]
-		//     #self.response.out.write("somekeys = %s<br><br>" % somekeys)
-		//     query = db.Query(Person)
-		//     query.filter("__key__ IN", somekeys)
-		//     s = set(query)
-		//     #self.response.out.write("s = %s<br><br>" % s)
-		//     for person in sorted(s, key=Thing.key):
-		//       #self.response.out.write("person = %s<br><br>" % person)
-		//       self.personView(person)
+		// TODO Filter out duplicate keys.
+		var entities = make([]Entity, len(keys))
+		err = client.GetMulti(ctx, keys, entities)
+		if err != nil {
+			log.Fatalf("Failed to fetch entities with keys %v: %v", keys, err)
+		}
+		for _, entity := range entities {
+			renderView(w, client, &entity)
+		}
 	} else {
 		switch action {
 		case "create":
@@ -203,6 +219,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			entity, err := requestToEntity(r, client)
 			if err != nil {
 				log.Fatalf("Unable to convert request to entity: %v", err)
+			}
+
+			if r.Method == "POST" {
+				entity.fixAndSave(client)
 			}
 
 			if modified {

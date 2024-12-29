@@ -152,26 +152,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer client.Close()
 
-	// k := datastore.NameKey("Foo", "fookey", nil)
-	// foo := &Entity{
-	// 	City:     "foocity",
-	// 	Comments: "foocomments" + strings.Repeat("x", 10000),
-	// }
-	// client.Put(ctx, k, foo)
-
-	// k := datastore.IDKey("Person", 1001, nil)
-	// var e Entity
-	// client.Get(ctx, k, &e)
-	// log.Printf("e.CompanyName=%v", e.CompanyName)
-	// log.Printf("e.Comments=%v", e.Comments)
-
-	// k = datastore.IDKey("Foo", 1001, nil)
-	// client.Put(ctx, k, &e)
-	// e = Entity{}
-	// client.Get(ctx, k, &e)
-	// log.Printf("e.CompanyName=%v", e.CompanyName)
-	// log.Printf("e.Comments=%v", e.Comments)
-
 	if q != "" {
 		keys := []*datastore.Key{}
 		q = strings.TrimSpace(strings.ToLower(q))

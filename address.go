@@ -39,7 +39,7 @@ func renderAddressView(w io.Writer, address *Entity) error {
 		</div>
 	`,
 		clazz,
-		address.editUrl(),
+		address.editURL(),
 
 		address.Key.Kind,
 		html.EscapeString(address.snippet()),

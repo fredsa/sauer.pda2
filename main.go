@@ -15,21 +15,24 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"google.golang.org/appengine/v2"
+	"google.golang.org/appengine/v2/mail"
 	"google.golang.org/appengine/v2/user"
 )
 
 // https://cloud.google.com/appengine/docs/standard/go/runtime#environment_variables
 const PORT = "PORT"
-const GOOGLE_CLOUD_PROJECT = "GOOGLE_CLOUD_PROJECT"
-const GAE_APPLICATION = "GAE_APPLICATION" // App id, with prefix.
-const GAE_ENV = "GAE_ENV"                 // `standard` in production.
-const GAE_RUNTIME = "GAE_RUNTIME"         // Runtime in `app.yaml`.
-const GAE_VERSION = "GAE_VERSION"         // App version.
+const GOOGLE_CLOUD_PROJECT = "GOOGLE_CLOUD_PROJECT" // The Google Cloud project ID associated with your application.
+const GAE_APPLICATION = "GAE_APPLICATION"           // App id, with prefix.
+const GAE_ENV = "GAE_ENV"                           // `standard` in production.
+const GAE_RUNTIME = "GAE_RUNTIME"                   // Runtime in `app.yaml`.
+const GAE_VERSION = "GAE_VERSION"                   // App version.
 
 var ADMINS_FREDSA = []string{"fredsa@gmail.com", "fred@allen-sauer.com"}
 var ctx context.Context
 var projectID string
 var isDev = false
+var sender string
+var emailTo []string
 
 var defaultVersionOrigin = "unset-default-version-origin"
 
@@ -38,6 +41,14 @@ func main() {
 	isDev = os.Getenv(GAE_APPLICATION) == ""
 	port := os.Getenv(PORT)
 
+	// https://cloud.google.com/appengine/docs/standard/services/mail?tab=go#who_can_send_mail
+	// - The Gmail or Google Workspace Account of the user who is currently signed in
+	// - Any email address of the form anything@[MY_PROJECT_ID].appspotmail.com or anything@[MY_PROJECT_NUMBER].appspotmail.com
+	// - Any email address listed in the Google Cloud console under Email API Authorized Senders:
+	//   https://console.cloud.google.com/appengine/settings/emailsenders?project=sauer-pda
+	sender = fmt.Sprintf("pda@%s.appspotmail.com", projectID)
+	emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
+
 	if isDev {
 		port = "4200"
 		defaultVersionOrigin = "http://localhost:" + port
@@ -45,6 +56,7 @@ func main() {
 		_ = os.Setenv(GAE_RUNTIME, "go123456")
 		_ = os.Setenv(GAE_VERSION, "my-version")
 		_ = os.Setenv(GAE_ENV, "standard")
+		emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
 	} else {
 		defaultVersionOrigin = "https://" + appengine.DefaultVersionHostname(ctx)
 	}
@@ -113,20 +125,34 @@ func tasknotifyHandler(w http.ResponseWriter, client *datastore.Client) error {
 
 	query := datastore.NewQuery("Calendar")
 	// query = query.FilterEntity(datastore.PropertyFilter{FieldName: "enabled", Operator: "=", Value: true})
-	var entities []Entity
-	_, err := client.GetAll(ctx, query, &entities)
+	var events []Entity
+	_, err := client.GetAll(ctx, query, &events)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
 	}
 
-	fmt.Fprintf(w, "Reviewing %d calendar entries\n", len(entities))
-	for _, e := range entities {
-		if !e.Enabled {
+	fmt.Fprintf(w, "Reviewing %d calendar entries\n", len(events))
+	for _, event := range events {
+		if !event.Enabled {
 			continue
 		}
-		mmdd := e.FirstOccurrence.Format("01-02")
+		mmdd := event.FirstOccurrence.Format("01-02")
 		if mmdd == nowmmdd {
-			fmt.Fprintf(w, "MATCH %s %s %v\n", mmdd, nowmmdd, e.Occasion)
+			fmt.Fprintf(w, "MATCH %s %s %v\n", mmdd, nowmmdd, event.Occasion)
+			person := &Entity{}
+			err = client.Get(ctx, event.Key.Parent, person)
+
+			event := fmt.Sprintf("%s %s %s", event.FirstOccurrence.Format("2006-01-02"), event.Occasion, event.Comments)
+			body := fmt.Sprintf("%s\n\n%s\n", person.displayName(), person.viewURL())
+			subject := fmt.Sprintf("%s %s", projectID, event)
+			msg := &mail.Message{
+				Sender:  sender,
+				To:      emailTo,
+				Subject: subject,
+				Body:    body,
+			}
+			mail.Send(ctx, msg)
+			log.Printf("Send %q\n", msg)
 		} else {
 			// fmt.Fprintf(w,"no match %s %s %v", mmdd, nowmmdd, e.Occasion)
 		}
@@ -306,6 +332,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return
 		}
+		return
 	}
 
 	if r.URL.Path != "/" {

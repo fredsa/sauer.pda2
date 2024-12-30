@@ -24,7 +24,7 @@ func renderContactView(w io.Writer, contact *Entity) error {
 		<a href="%s" class="edit-link">Edit</a>
 		<span class="thing %s">%s</span>
 	`, clazz,
-		contact.editUrl(),
+		contact.editURL(),
 		contact.Key.Kind,
 		text)
 

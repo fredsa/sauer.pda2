@@ -28,7 +28,7 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) err
 		<span class="thing">%s</span> <span class="tag">(%s) [%s]</span><br>
 		<div class="comments">%s</div>
 		<div class="indent">
-	`, person.editUrl(),
+	`, person.editURL(),
 		name,
 		person.Category,
 		person.enabledText(),

@@ -214,13 +214,22 @@ func (entity *Entity) enabledText() string {
 	return enabledText(entity.Enabled)
 }
 
-func (entity *Entity) editUrl() string {
+func (entity *Entity) actionURL(action string) string {
 	// Include origin for a fully qualified URL.
-	return fmt.Sprintf("%s/?action=edit&kind=%s&key=%s",
+	return fmt.Sprintf("%s/?action=%s&kind=%s&key=%s",
 		defaultVersionOrigin,
+		action,
 		entity.Key.Kind,
 		entity.Key.Encode(),
 	)
+}
+
+func (entity *Entity) viewURL() string {
+	return entity.actionURL("view")
+}
+
+func (entity *Entity) editURL() string {
+	return entity.actionURL("edit")
 }
 
 func (person *Entity) displayName() string {

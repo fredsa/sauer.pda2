@@ -22,7 +22,7 @@ func renderCalendarView(w io.Writer, calendar *Entity) error {
 		</div>
 	`,
 		clazz,
-		calendar.editUrl(),
+		calendar.editURL(),
 		calendar.Key.Kind,
 		formattedDate,
 		calendar.Frequency,

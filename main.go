@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/datastore"
 	"google.golang.org/appengine/v2"
@@ -105,6 +106,57 @@ func getValue(r *http.Request, name string) string {
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	client, err := datastore.NewClient(ctx, projectID)
+	if err != nil {
+		log.Fatalf("Failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	// Runs daily from `cron.yaml`, or manually from admin link.
+	if r.URL.Path == "/task/notify" {
+		// loc, err := time.LoadLocation("America/Los_Angeles")
+		// if err != nil {
+		// 	log.Fatalf("Failed to load time location: %v", err)
+		// }
+		nowmmdd := time.Now().Format("01-02")
+		nowmmdd = "01-15"
+		log.Printf("NOW = %v", nowmmdd)
+
+		query := datastore.NewQuery("Calendar")
+		// query = query.FilterEntity(datastore.PropertyFilter{FieldName: "enabled", Operator: "=", Value: true})
+		var entities []Entity
+		_, err = client.GetAll(ctx, query, &entities)
+		if err != nil {
+			log.Fatalf("Failed to fetch calendar entries: %v", err)
+		}
+
+		for _, e := range entities {
+			if !e.Enabled {
+				continue
+			}
+			mmdd := e.FirstOccurrence.Format("01-02")
+			if mmdd == nowmmdd {
+				log.Printf("MATCH %s %s %v", mmdd, nowmmdd, e.Occasion)
+			} else {
+				// log.Printf("no match %s %s %v", mmdd, nowmmdd, e.Occasion)
+			}
+		}
+
+		//   now_mm_dd = now.strftime("%m/%d")
+		//   log += "Searching for calendar entities for %s ...\n" % now_mm_dd
+
+		//   for calendar in Calendar.all():
+		//     if not calendar.enabled:
+		//       continue
+		//     when = calendar.first_occurrence
+		//     if when.strftime("%m/%d") == now_mm_dd:
+		//       log += "%s\n" % calendar.viewUrl()
+		//       taskqueue.add(url='/task/mail', params={'key': calendar.key()})
+		//   log += "Done"
+		//   log_and_mail()
+		return
+	}
+
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
@@ -145,12 +197,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "<div>kind=%v</div>", kind)
 	fmt.Fprintf(w, "<div>modified=%v</div>", modified)
 	renderPremable(w, u, q)
-
-	client, err := datastore.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-	}
-	defer client.Close()
 
 	if q != "" {
 		keys := []*datastore.Key{}
@@ -201,11 +247,11 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 				log.Fatalf("Unable to convert request to entity: %v", err)
 			}
 
-			if r.Method == "POST" {
-				entity.fixAndSave(client)
-			}
-
+			// TODO Remove `modified`, use `POST` method as signal instead.
 			if modified {
+				if r.Method == "POST" {
+					entity.fixAndSave(client)
+				}
 				renderView(w, client, entity)
 			} else {
 				renderForm(w, client, entity)

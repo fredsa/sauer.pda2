@@ -87,7 +87,7 @@ type Entity struct {
 
 	// Common fields.
 	Comments string   `forkind:"" datastore:"comments,omitempty,noindex" form:"textarea"`
-	Enabled  bool     `forkind:"" datastore:"enabled,noindex"`       // Required.
+	Enabled  bool     `forkind:"" datastore:"enabled"`               // Required. Indexed.
 	Words    []string `forkind:"hidden" datastore:"words,omitempty"` // Indexed.
 }
 
@@ -103,12 +103,48 @@ func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity,
 	// kind := getValue(r, "kind")
 	key := getValue(r, "key")
 	dbkey, err := datastore.DecodeKey(key)
-	var e Entity
-	err = client.Get(ctx, dbkey, &e)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey.Kind, err))
+
+	if r.Method == "POST" {
+		e := &Entity{}
+
+		t := reflect.TypeOf(e).Elem()
+		v := reflect.ValueOf(e).Elem()
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			value := v.Field(i)
+
+			v := r.Form.Get(field.Name)
+			if field.Name == "Key" {
+				value.Set(reflect.ValueOf(dbkey))
+			} else if field.Tag.Get("forkind") == "hidden" {
+				// Skip.
+				continue
+			} else if field.Type.Kind() == reflect.Bool {
+				value.SetBool(v != "")
+			} else if field.Type == reflect.TypeOf(time.Time{}) {
+				t, err := time.Parse("2006-01-02", v)
+				if err != nil {
+					return nil, errors.New(fmt.Sprintf("Failed to parse date %v: %v", v, err))
+				}
+				// log.Printf("DATE: %s == %v", field.Name, t)
+				value.Set(reflect.ValueOf(t))
+			} else if field.Tag.Get("form") == "select" {
+				value.SetString(v)
+			} else {
+				value.SetString(v)
+			}
+		}
+		e.fixAndSave(client)
+
+		return e, nil
+	} else {
+		var e Entity
+		err = client.Get(ctx, dbkey, &e)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey.Kind, err))
+		}
+		return &e, nil
 	}
-	return &e, nil
 }
 
 func requestToRootEntity(r *http.Request, client *datastore.Client) (entity *Entity, err error) {

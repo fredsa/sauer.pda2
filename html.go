@@ -106,17 +106,18 @@ func renderPremable(w io.Writer, u *user.User, q string) {
 			</form>
 
 			<hr>
-			[<a href=".?action=create&kind=Person">+entry</a>]
-			<br>
-			<br>
 	`,
 		u.Email,
 		q)
+
+	renderCreateEntity(w, "Person", nil)
+	fmt.Fprintf(w, `<br><br>`)
 }
 
 func renderPostamble(w io.Writer, u *user.User, q string) {
 	if isDev || slices.Contains(ADMINS_FREDSA, u.Email) {
 		fmt.Fprintf(w, `
+		<br>
 		<div><a class="admin" href="/_ah/admin">/_ah/admin</a></div>
 		<div><a class="admin" href="/_ah/stats">/_ah/stats</a></div>
 		<div><a class="admin" href="/task/notify">/task/notify</a></div>

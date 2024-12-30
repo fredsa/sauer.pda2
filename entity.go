@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,7 +57,7 @@ type Entity struct {
 
 	// Person kind.
 	Category    string `forkind:"Person" datastore:"category,omitempty,noindex" form:"select"`
-	SendCard    bool   `forkind:"Person" datastore:"send_card,omitempty,noindex"`
+	SendCard    bool   `forkind:"Person" datastore:"send_card,omitempty,noindex" default:"false"` // Default false.
 	Title       string `forkind:"Person" datastore:"title,omitempty,noindex"`
 	MailingName string `forkind:"Person" datastore:"mailing_name,omitempty,noindex"`
 	FirstName   string `forkind:"Person" datastore:"first_name,omitempty,noindex"`
@@ -86,8 +88,8 @@ type Entity struct {
 
 	// Common fields.
 	Comments string   `forkind:"" datastore:"comments,omitempty,noindex" form:"textarea"`
-	Enabled  bool     `forkind:"" datastore:"enabled"`               // Required. Indexed.
-	Words    []string `forkind:"hidden" datastore:"words,omitempty"` // Indexed.
+	Enabled  bool     `forkind:"" datastore:"enabled" default:"true"` // Required. Indexed. Default true.
+	Words    []string `forkind:"hidden" datastore:"words,omitempty"`  // Indexed.
 }
 
 func (entity *Entity) maybeKey() string {
@@ -99,7 +101,6 @@ func (entity *Entity) maybeKey() string {
 }
 
 func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity, err error) {
-	// kind := getValue(r, "kind")
 	key := getValue(r, "key")
 	dbkey, err := datastore.DecodeKey(key)
 
@@ -149,24 +150,6 @@ func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity,
 			return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey, err))
 		}
 		return &e, nil
-	}
-}
-
-func requestToRootEntity(r *http.Request, client *datastore.Client) (entity *Entity, err error) {
-	e, err := requestToEntity(r, client)
-	if err != nil {
-		return nil, err
-	}
-
-	if e.Key.Kind == "Person" {
-		return e, nil
-	} else {
-		var person Entity
-		err = client.Get(ctx, e.Key.Parent, &person)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to get parent for %s: %v", e.Key.Kind, err))
-		}
-		return &person, nil
 	}
 }
 
@@ -267,16 +250,29 @@ func renderForm(w io.Writer, entity *Entity) {
 			<input type="hidden" name="action" value="edit">
 			<table>
 	`)
-	formFields(w, entity)
+	renderFormFields(w, entity)
 	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
 	fmt.Fprintf(w, `
 			</table>
 		</form>
 		<hr>
 	`)
+
+	if !entity.Key.Incomplete() && entity.Key.Kind == "Person" {
+		for _, kind := range kinds {
+			if kind != entity.Key.Kind {
+				renderCreateEntity(w, kind, entity.Key)
+			}
+		}
+	}
 }
 
-func formFields(w io.Writer, entity *Entity) {
+func renderCreateEntity(w io.Writer, kind string, parentKey *datastore.Key) {
+	childkey := datastore.IDKey(kind, 0, parentKey)
+	fmt.Fprintf(w, `<a href="?action=create&key=%s">[+%s]</a>&nbsp;`, childkey.Encode(), kind)
+}
+
+func renderFormFields(w io.Writer, entity *Entity) {
 	t := reflect.TypeOf(entity).Elem()
 	v := reflect.ValueOf(entity).Elem()
 	for i := 0; i < t.NumField(); i++ {
@@ -319,8 +315,20 @@ func formFields(w io.Writer, entity *Entity) {
 		} else if field.Type.Kind() == reflect.String {
 			html = fmt.Sprintf(`<input type="text" style="width: 50em;" name="%s" value="%s">`, field.Name, value)
 		} else if field.Type.Kind() == reflect.Bool {
+			val := false
+			if !entity.Key.Incomplete() {
+				val = value.Bool()
+			} else {
+				defval := field.Tag.Get("default")
+				v, err := strconv.ParseBool(defval)
+				if err != nil {
+					log.Fatalf("Failed to parse bool %q: %v", defval, err)
+				}
+				val = v
+			}
+
 			checked := ""
-			if value.Bool() {
+			if val {
 				checked = "checked"
 			}
 			html = fmt.Sprintf(`<input type="checkbox" name="%s" %s> %s`, field.Name, checked, label)

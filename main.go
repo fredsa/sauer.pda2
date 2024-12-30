@@ -216,7 +216,8 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 
 	q := getValue(r, "q")
 	action := getValue(r, "action")
-	kind := getValue(r, "kind")
+	// kind := getValue(r, "kind")
+	key := getValue(r, "key")
 
 	// fmt.Fprintf(w, "<div>q=%v</div>", q)
 	// fmt.Fprintf(w, "<div>action=%v</div>", action)
@@ -229,16 +230,22 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 	} else {
 		switch action {
 		case "create":
+			dbkey, err := datastore.DecodeKey(key)
+			if err != nil {
+				return errors.New(fmt.Sprintf("Failed to decode key %q: %v", key, err))
+			}
 			entity := Entity{
-				Key: &datastore.Key{
-					Kind: kind,
-				},
+				// Key: &datastore.Key{
+				// Kind: kind,
+				// },
+				Key: dbkey,
 			}
 			renderPremable(w, u, q)
 			renderForm(w, &entity)
 			renderPostamble(w, u, q)
 		case "view":
-			entity, err := requestToRootEntity(r, client)
+			// TODO Here, or elsewhere, make this view the root entity.
+			entity, err := requestToEntity(r, client)
 			if err != nil {
 				return errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))
 			}
@@ -251,13 +258,18 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 				return errors.New(fmt.Sprintf("Unable to convert request to entity: %v", err))
 			}
 
-			renderPremable(w, u, q)
 			if r.Method == "POST" {
-				renderView(w, client, entity)
+				key := entity.Key
+				if entity.Key.Parent != nil {
+					key = entity.Key.Parent
+				}
+				http.Redirect(w, r, fmt.Sprintf("/?action=view&key=%s", key.Encode()), http.StatusFound)
+				return nil
 			} else {
+				renderPremable(w, u, q)
 				renderForm(w, entity)
+				renderPostamble(w, u, q)
 			}
-			renderPostamble(w, u, q)
 		case "fix":
 			// count = 0
 			// query = db.Query(keys_only == True)
@@ -270,6 +282,9 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 			// 	log.Printf("%s: %s", count, key)
 			// }
 			// fmt.Fprintf(w, `DONE<br>`)
+		default:
+			renderPremable(w, u, q)
+			renderPostamble(w, u, q)
 		}
 	}
 
@@ -280,6 +295,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	client, err := datastore.NewClient(ctx, projectID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create client: %v", err), http.StatusInternalServerError)
+		return
 	}
 	defer client.Close()
 
@@ -288,6 +304,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		err = tasknotifyHandler(w, r, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
+			return
 		}
 	}
 

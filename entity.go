@@ -292,10 +292,13 @@ func formFields(w io.Writer, entity *Entity) {
 		forkind := field.Tag.Get("forkind")
 		if field.Name == "Key" {
 			color = "gray"
-			html = fmt.Sprintf(`<input type="text" name="key" value="%s"> %s`, entity.Key.Encode(), value)
+			html = fmt.Sprintf(`
+				<input type="hidden" name="key" value="%s">
+				<code>%s<br>%s<code>
+			`, entity.Key.Encode(), entity.Key.Encode(), value)
 		} else if forkind == "hidden" {
 			color = "gray"
-			html = fmt.Sprintf(`[HIDDEN] %s`, value)
+			html = fmt.Sprintf(`<code>%q</code>`, value)
 		} else if forkind != "" && forkind != entity.Key.Kind {
 			continue
 			// color = "purple"

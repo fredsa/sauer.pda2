@@ -1,10 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html"
 	"io"
-	"log"
 
 	"cloud.google.com/go/datastore"
 )
@@ -19,7 +19,7 @@ var categories = []string{
 	"Business Relations",
 }
 
-func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
+func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) error {
 	name := html.EscapeString(person.displayName())
 	comments := html.EscapeString(person.Comments)
 	fmt.Fprintf(w, `
@@ -38,7 +38,7 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
 	query := datastore.NewQuery("Contact").Ancestor(person.Key)
 	_, err := client.GetAll(ctx, query, &contacts)
 	if err != nil {
-		log.Fatalf("Failed to get all: %v", err)
+		return errors.New(fmt.Sprintf("Failed to get all contacts: %v", err))
 	}
 
 	for _, contact := range contacts {
@@ -49,7 +49,7 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
 	query = datastore.NewQuery("Address").Ancestor(person.Key)
 	_, err = client.GetAll(ctx, query, &addresses)
 	if err != nil {
-		log.Fatalf("Failed to get all: %v", err)
+		return errors.New(fmt.Sprintf("Failed to get all addresses: %v", err))
 	}
 
 	for _, address := range addresses {
@@ -60,7 +60,7 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
 	query = datastore.NewQuery("Calendar").Ancestor(person.Key)
 	_, err = client.GetAll(ctx, query, &events)
 	if err != nil {
-		log.Fatalf("Failed to get all: %v", err)
+		return errors.New(fmt.Sprintf("Failed to get all calendar events: %v", err))
 	}
 
 	for _, event := range events {
@@ -69,9 +69,11 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) {
 
 	fmt.Fprintf(w, `
 		</div>`)
+
+	return nil
 }
 
-func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {
+func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) error {
 	fmt.Fprintf(w, `
 		<hr>
 		<form name="personform" method="post" action=".">
@@ -84,7 +86,7 @@ func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {
 	formFields(w, person)
 	// props = Person.properties()
 	// self.formFields(person)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>`)
+	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
 	propname := "category"
 	fmt.Fprintf(w, `
 			</table>
@@ -103,4 +105,6 @@ func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {
 			<a href="?action=create&kind=Calendar&parent_key=%s">[+Calendar]</a>
 	  	`, person.Key.Encode(), person.Key.Encode(), person.Key.Encode())
 	}
+
+	return nil
 }

@@ -4,6 +4,7 @@ go 1.23.4
 
 require (
 	cloud.google.com/go/datastore v1.20.0
+	golang.org/x/net v0.30.0
 	google.golang.org/appengine/v2 v2.0.6
 )
 
@@ -27,7 +28,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
 	golang.org/x/crypto v0.28.0 // indirect
-	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect

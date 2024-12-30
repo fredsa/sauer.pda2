@@ -19,7 +19,7 @@ func (address *Entity) snippet() string {
 	return strings.ReplaceAll(s, "/  /", "/")
 }
 
-func renderAddressView(w io.Writer, address *Entity) {
+func renderAddressView(w io.Writer, address *Entity) error {
 	qlocation := strings.ReplaceAll(address.snippet(), " / ", " ")
 	mapsURL := "https://maps.google.com/?q=" + qlocation
 
@@ -49,9 +49,11 @@ func renderAddressView(w io.Writer, address *Entity) {
 
 		html.EscapeString(address.Comments),
 	)
+
+	return nil
 }
 
-func renderAddressForm(w io.Writer, address *Entity) {
+func renderAddressForm(w io.Writer, address *Entity) error {
 	fmt.Fprintf(w, `
 		<hr>
 		<form name="addressform" method="post" action=".">
@@ -63,10 +65,12 @@ func renderAddressForm(w io.Writer, address *Entity) {
 	`, address.Key.Kind, address.maybeKey(), address.Key.Parent.Encode())
 
 	formFields(w, address)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>`)
+	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
 	fmt.Fprintf(w, `
 		</table>
 		</form>
 		<hr>
 	`)
+
+	return nil
 }

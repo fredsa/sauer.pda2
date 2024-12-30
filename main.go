@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -53,7 +55,7 @@ func main() {
 
 	log.Printf("Listening on port %s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to listen and serve: %v", err)
 	}
 
 	// doit(os.Stdout)
@@ -67,33 +69,33 @@ func enabledText(enabled bool) string {
 	}
 }
 
-func renderView(w io.Writer, client *datastore.Client, entity *Entity) {
+func renderView(w io.Writer, client *datastore.Client, entity *Entity) error {
 	switch entity.Key.Kind {
 	case "Person":
-		renderPersonView(w, client, entity)
+		return renderPersonView(w, client, entity)
 	case "Contact":
-		renderContactView(w, entity)
+		return renderContactView(w, entity)
 	case "Address":
-		renderAddressView(w, entity)
+		return renderAddressView(w, entity)
 	case "Calendar":
-		renderCalendarView(w, entity)
+		return renderCalendarView(w, entity)
 	default:
-		log.Fatalf("Unknown kind: %s", entity.Key.Kind)
+		return errors.New(fmt.Sprintf("Unknown kind: %s", entity.Key.Kind))
 	}
 }
 
-func renderForm(w io.Writer, client *datastore.Client, entity *Entity) {
+func renderForm(w io.Writer, client *datastore.Client, entity *Entity) error {
 	switch entity.Key.Kind {
 	case "Person":
-		renderPersonForm(w, client, entity)
+		return renderPersonForm(w, client, entity)
 	case "Contact":
-		renderContactForm(w, entity)
+		return renderContactForm(w, entity)
 	case "Address":
-		renderAddressForm(w, entity)
+		return renderAddressForm(w, entity)
 	case "Calendar":
-		renderCalendarForm(w, entity)
+		return renderCalendarForm(w, entity)
 	default:
-		log.Fatalf("Unknown kind: %s", entity.Key.Kind)
+		return errors.New(fmt.Sprintf("Unknown kind: %s", entity.Key.Kind))
 	}
 }
 
@@ -105,72 +107,112 @@ func getValue(r *http.Request, name string) string {
 	return value
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
-	client, err := datastore.NewClient(ctx, projectID)
+func intersection(a, b []*datastore.Key) []*datastore.Key {
+	result := make([]*datastore.Key, 0)
+	for k := range a {
+		if slices.ContainsFunc(b, func(v *datastore.Key) bool { return v.Equal(a[k]) }) {
+			result = append(result, a[k])
+		}
+	}
+	return result
+}
+
+func tasknotifyHandler(w http.ResponseWriter, r *http.Request, client *datastore.Client) error {
+	// loc, err := time.LoadLocation("America/Los_Angeles")
+	// if err != nil {
+	// 	log.Fatalf("Failed to load time location: %v", err)
+	// }
+	nowmmdd := time.Now().Format("01-02")
+	nowmmdd = "01-15"
+	log.Printf("NOW = %v", nowmmdd)
+
+	query := datastore.NewQuery("Calendar")
+	// query = query.FilterEntity(datastore.PropertyFilter{FieldName: "enabled", Operator: "=", Value: true})
+	var entities []Entity
+	_, err := client.GetAll(ctx, query, &entities)
 	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
+		return errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
 	}
-	defer client.Close()
 
-	// Runs daily from `cron.yaml`, or manually from admin link.
-	if r.URL.Path == "/task/notify" {
-		// loc, err := time.LoadLocation("America/Los_Angeles")
-		// if err != nil {
-		// 	log.Fatalf("Failed to load time location: %v", err)
-		// }
-		nowmmdd := time.Now().Format("01-02")
-		nowmmdd = "01-15"
-		log.Printf("NOW = %v", nowmmdd)
-
-		query := datastore.NewQuery("Calendar")
-		// query = query.FilterEntity(datastore.PropertyFilter{FieldName: "enabled", Operator: "=", Value: true})
-		var entities []Entity
-		_, err = client.GetAll(ctx, query, &entities)
-		if err != nil {
-			log.Fatalf("Failed to fetch calendar entries: %v", err)
+	fmt.Fprintf(w, "Found %d calendar entries", len(entities))
+	for _, e := range entities {
+		if !e.Enabled {
+			continue
 		}
+		mmdd := e.FirstOccurrence.Format("01-02")
+		if mmdd == nowmmdd {
+			fmt.Fprintf(w, "MATCH %s %s %v", mmdd, nowmmdd, e.Occasion)
+		} else {
+			// fmt.Fprintf(w,"no match %s %s %v", mmdd, nowmmdd, e.Occasion)
+		}
+	}
 
-		for _, e := range entities {
-			if !e.Enabled {
-				continue
+	return nil
+
+	//   now_mm_dd = now.strftime("%m/%d")
+	//   log += "Searching for calendar entities for %s ...\n" % now_mm_dd
+
+	//   for calendar in Calendar.all():
+	//     if not calendar.enabled:
+	//       continue
+	//     when = calendar.first_occurrence
+	//     if when.strftime("%m/%d") == now_mm_dd:
+	//       log += "%s\n" % calendar.viewUrl()
+	//       taskqueue.add(url='/task/mail', params={'key': calendar.key()})
+	//   log += "Done"
+	//   log_and_mail()
+}
+
+func searchHandler(w http.ResponseWriter, r *http.Request, client *datastore.Client, u *user.User, q string) error {
+	keys := []*datastore.Key{}
+	q = strings.TrimSpace(strings.ToLower(q))
+	qlist := regexp.MustCompile(`\s+`).Split(q, -1)
+	for i, qword := range qlist {
+		wordkeys := make([]*datastore.Key, 0)
+		for _, kind := range kinds {
+			query := datastore.NewQuery(kind)
+			query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: ">=", Value: qword})
+			query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: "<=", Value: qword + "~"})
+			query = query.KeysOnly()
+			ks, err := client.GetAll(ctx, query, Entity{})
+			if err != nil {
+				return errors.New(fmt.Sprintf("Failed to fetch keys for kind %s, word %s: %v", kind, qword, err))
 			}
-			mmdd := e.FirstOccurrence.Format("01-02")
-			if mmdd == nowmmdd {
-				log.Printf("MATCH %s %s %v", mmdd, nowmmdd, e.Occasion)
-			} else {
-				// log.Printf("no match %s %s %v", mmdd, nowmmdd, e.Occasion)
+			log.Printf("kind=%s, qword=%s, ks=%q", kind, qword, ks)
+			wordkeys = append(wordkeys, ks...)
+		}
+
+		// Convert keys to root `Person` key.
+		for j, wk := range wordkeys {
+			if wordkeys[j].Parent != nil {
+				wordkeys[j] = wk.Parent
 			}
 		}
 
-		//   now_mm_dd = now.strftime("%m/%d")
-		//   log += "Searching for calendar entities for %s ...\n" % now_mm_dd
-
-		//   for calendar in Calendar.all():
-		//     if not calendar.enabled:
-		//       continue
-		//     when = calendar.first_occurrence
-		//     if when.strftime("%m/%d") == now_mm_dd:
-		//       log += "%s\n" % calendar.viewUrl()
-		//       taskqueue.add(url='/task/mail', params={'key': calendar.key()})
-		//   log += "Done"
-		//   log_and_mail()
-		return
-	}
-
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	if r.Method == "POST" {
-		err := r.ParseForm()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			// log.Fatalf("Error parsing form: %v", err)
-			return
+		if i == 0 {
+			keys = wordkeys
+		} else {
+			keys = intersection(keys, wordkeys)
 		}
 	}
 
+	var entities = make([]Entity, len(keys))
+	err := client.GetMulti(ctx, keys, entities)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to fetch entities with keys %v: %v", keys, err))
+	}
+
+	renderPremable(w, u, q)
+	fmt.Fprintf(w, "<div>%d result(s)</div>", len(entities))
+	for _, entity := range entities {
+		renderView(w, client, &entity)
+	}
+	renderPostamble(w, u, q)
+
+	return nil
+}
+
+func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.Client) error {
 	u := user.Current(ctx)
 	// log.Printf("user: %v\n", u)
 	if u == nil {
@@ -191,41 +233,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	action := getValue(r, "action")
 	kind := getValue(r, "kind")
 
-	fmt.Fprintf(w, "<div>q=%v</div>", q)
-	fmt.Fprintf(w, "<div>action=%v</div>", action)
-	fmt.Fprintf(w, "<div>kind=%v</div>", kind)
-	renderPremable(w, u, q)
+	// fmt.Fprintf(w, "<div>q=%v</div>", q)
+	// fmt.Fprintf(w, "<div>action=%v</div>", action)
+	// fmt.Fprintf(w, "<div>kind=%v</div>", kind)
 
 	// TODO Fix multi word search.
 	// TODO Search results should all be Person kind.
 	if q != "" {
-		keys := []*datastore.Key{}
-		q = strings.TrimSpace(strings.ToLower(q))
-		qlist := regexp.MustCompile(`\s+`).Split(q, -1)
-		for _, qword := range qlist {
-			for _, kind := range kinds {
-				query := datastore.NewQuery(kind)
-				query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: ">=", Value: qword})
-				query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: "<=", Value: qword + "~"})
-				query = query.KeysOnly()
-				ks, err := client.GetAll(ctx, query, Entity{})
-				if err != nil {
-					log.Fatalf("Failed to fetch keys for kind %s, word %s: %v", kind, qword, err)
-				}
-				log.Printf("kind=%s, qword=%s, ks=%q", kind, qword, ks)
-				keys = append(keys, ks...)
-			}
-		}
-
-		// TODO Filter out duplicate keys.
-		var entities = make([]Entity, len(keys))
-		err = client.GetMulti(ctx, keys, entities)
-		if err != nil {
-			log.Fatalf("Failed to fetch entities with keys %v: %v", keys, err)
-		}
-		for _, entity := range entities {
-			renderView(w, client, &entity)
-		}
+		searchHandler(w, r, client, u, q)
 	} else {
 		switch action {
 		case "create":
@@ -234,24 +249,30 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 					Kind: kind,
 				},
 			}
+			renderPremable(w, u, q)
 			renderForm(w, client, &entity)
+			renderPostamble(w, u, q)
 		case "view":
 			entity, err := requestToRootEntity(r, client)
 			if err != nil {
-				log.Fatalf("Unable to convert request to person: %v", err)
+				return errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))
 			}
+			renderPremable(w, u, q)
 			renderPersonView(w, client, entity)
+			renderPostamble(w, u, q)
 		case "edit":
 			entity, err := requestToEntity(r, client)
 			if err != nil {
-				log.Fatalf("Unable to convert request to entity: %v", err)
+				return errors.New(fmt.Sprintf("Unable to convert request to entity: %v", err))
 			}
 
+			renderPremable(w, u, q)
 			if r.Method == "POST" {
 				renderView(w, client, entity)
 			} else {
 				renderForm(w, client, entity)
 			}
+			renderPostamble(w, u, q)
 		case "fix":
 			// count = 0
 			// query = db.Query(keys_only == True)
@@ -267,29 +288,39 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	renderPostamble(w, u, q)
+	return nil
 }
 
-// func doit(w io.Writer) {
-// 	client, err := datastore.NewClient(ctx, projectID)
-// 	if err != nil {
-// 		log.Fatalf("Failed to create client: %v", err)
-// 	}
-// 	defer client.Close()
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	client, err := datastore.NewClient(ctx, projectID)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create client: %v", err), http.StatusInternalServerError)
+	}
+	defer client.Close()
 
-// 	query := datastore.NewQuery("Person").Limit(15)
+	// Runs daily from `cron.yaml`, or manually from admin link.
+	if r.URL.Path == "/task/notify" {
+		err = tasknotifyHandler(w, r, client)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
+		}
+	}
 
-// 	var people []Thing
-// 	_, err = client.GetAll(ctx, query, &people)
-// 	if err != nil {
-// 		log.Fatalf("Failed to get all: %v", err)
-// 	}
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 
-// 	for i, p := range people {
-// 		name := fmt.Sprintf("%v %v %v", p.CompanyName, p.FirstName, p.LastName)
-// 		name = strings.TrimSpace(name)
-// 		fmt.Fprintf(w, "%3d: %v %v\n", i, p.FirstOccurrence, name)
-// 	}
+	if r.Method == "POST" {
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to parse form: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
 
-// 	fmt.Fprint(w, "Done.")
-// }
+	err = mainPageHandler(w, r, client)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to render main page: %v", err), http.StatusInternalServerError)
+	}
+}

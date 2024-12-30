@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -122,9 +121,12 @@ func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity,
 			} else if field.Type.Kind() == reflect.Bool {
 				value.SetBool(v != "")
 			} else if field.Type == reflect.TypeOf(time.Time{}) {
-				t, err := time.Parse("2006-01-02", v)
-				if err != nil {
-					return nil, errors.New(fmt.Sprintf("Failed to parse date %v: %v", v, err))
+				t := time.Time{}
+				if v != "" {
+					t, err = time.Parse("2006-01-02", v)
+					if err != nil {
+						return nil, errors.New(fmt.Sprintf("Failed to parse date %q: %v", v, err))
+					}
 				}
 				// log.Printf("DATE: %s == %v", field.Name, t)
 				value.Set(reflect.ValueOf(t))
@@ -134,7 +136,10 @@ func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity,
 				value.SetString(v)
 			}
 		}
-		e.fixAndSave(client)
+		err := e.fixAndSave(client)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Failed to save %v: %v", e.Key.Kind, err))
+		}
 
 		return e, nil
 	} else {
@@ -159,7 +164,7 @@ func requestToRootEntity(r *http.Request, client *datastore.Client) (entity *Ent
 		var person Entity
 		err = client.Get(ctx, e.Key.Parent, &person)
 		if err != nil {
-			log.Fatalf("Failed to get parent for %s: %v", e.Key.Kind, err)
+			return nil, errors.New(fmt.Sprintf("Failed to get parent for %s: %v", e.Key.Kind, err))
 		}
 		return &person, nil
 	}
@@ -211,10 +216,15 @@ func (entity *Entity) words() []string {
 	return words
 }
 
-func (entity *Entity) fixAndSave(client *datastore.Client) {
+func (entity *Entity) fixAndSave(client *datastore.Client) error {
 	entity.Words = entity.words()
-	client.Put(ctx, entity.Key, entity)
-	// log.Printf("Put: %v", entity)
+	key, err := client.Put(ctx, entity.Key, entity)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to put entity: %v", err))
+	}
+	entity.Key = key
+
+	return nil
 }
 
 func (entity *Entity) enabledText() string {

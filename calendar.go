@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func renderCalendarView(w io.Writer, calendar *Entity) {
+func renderCalendarView(w io.Writer, calendar *Entity) error {
 	clazz := ""
 	if !calendar.Enabled {
 		clazz = "disabled"
@@ -30,9 +30,11 @@ func renderCalendarView(w io.Writer, calendar *Entity) {
 		calendar.enabledText(),
 		html.EscapeString(calendar.Comments),
 	)
+
+	return nil
 }
 
-func renderCalendarForm(w io.Writer, calendar *Entity) {
+func renderCalendarForm(w io.Writer, calendar *Entity) error {
 	fmt.Fprintf(w, `
 		<hr>
 		<form name="calendarform" method="post" action=".">
@@ -44,10 +46,12 @@ func renderCalendarForm(w io.Writer, calendar *Entity) {
 	`, calendar.Key.Kind, calendar.maybeKey(), calendar.Key.Parent.Encode())
 
 	formFields(w, calendar)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>`)
+	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
 	fmt.Fprintf(w, `
 		</table>
 		</form>
 		<hr>
 	`)
+
+	return nil
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func renderContactView(w io.Writer, contact *Entity) {
+func renderContactView(w io.Writer, contact *Entity) error {
 	text := html.EscapeString(contact.ContactText)
 	if strings.HasPrefix(text, "http") {
 		text = fmt.Sprintf(`
@@ -37,9 +37,11 @@ func renderContactView(w io.Writer, contact *Entity) {
 		contact.enabledText(),
 		html.EscapeString(contact.Comments),
 	)
+
+	return nil
 }
 
-func renderContactForm(w io.Writer, contact *Entity) {
+func renderContactForm(w io.Writer, contact *Entity) error {
 	fmt.Fprintf(w, `
 		<hr>
 		<form name="contactform" method="post" action=".">
@@ -51,10 +53,12 @@ func renderContactForm(w io.Writer, contact *Entity) {
 	`, contact.Key.Kind, contact.maybeKey(), contact.Key.Parent.Encode())
 
 	formFields(w, contact)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save Changes" style="margin-top: 1em;"></td></tr>`)
+	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
 	fmt.Fprintf(w, `
 		</table>
 		</form>
 		<hr>
 	`)
+
+	return nil
 }

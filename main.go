@@ -190,14 +190,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	q := getValue(r, "q")
 	action := getValue(r, "action")
 	kind := getValue(r, "kind")
-	modified := getValue(r, "modified") == "true"
 
 	fmt.Fprintf(w, "<div>q=%v</div>", q)
 	fmt.Fprintf(w, "<div>action=%v</div>", action)
 	fmt.Fprintf(w, "<div>kind=%v</div>", kind)
-	fmt.Fprintf(w, "<div>modified=%v</div>", modified)
 	renderPremable(w, u, q)
 
+	// TODO Fix multi word search.
+	// TODO Search results should all be Person kind.
 	if q != "" {
 		keys := []*datastore.Key{}
 		q = strings.TrimSpace(strings.ToLower(q))
@@ -247,11 +247,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 				log.Fatalf("Unable to convert request to entity: %v", err)
 			}
 
-			// TODO Remove `modified`, use `POST` method as signal instead.
-			if modified {
-				if r.Method == "POST" {
-					entity.fixAndSave(client)
-				}
+			if r.Method == "POST" {
 				renderView(w, client, entity)
 			} else {
 				renderForm(w, client, entity)

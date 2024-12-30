@@ -38,7 +38,6 @@ func renderCalendarForm(w io.Writer, calendar *Entity) {
 		<form name="calendarform" method="post" action=".">
 		<input type="hidden" name="action" value="edit">
 		<input type="hidden" name="kind" value="%s">
-		<input type="hidden" name="modified" value="true">
 		<input type="hidden" name="key" value="%s">
 		<input type="hidden" name="parent_key" value="%s">
 		<table>

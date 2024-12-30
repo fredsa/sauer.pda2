@@ -77,7 +77,6 @@ func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) {
 		<form name="personform" method="post" action=".">
 			<input type="hidden" name="action" value="edit">
 			<input type="hidden" name="kind" value="%s">
-			<input type="hidden" name="modified" value="true">
 			<input type="hidden" name="key" value="%s">
 			<table>
 	`, person.Key.Kind, person.maybeKey())

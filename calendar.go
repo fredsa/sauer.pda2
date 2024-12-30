@@ -33,25 +33,3 @@ func renderCalendarView(w io.Writer, calendar *Entity) error {
 
 	return nil
 }
-
-func renderCalendarForm(w io.Writer, calendar *Entity) error {
-	fmt.Fprintf(w, `
-		<hr>
-		<form name="calendarform" method="post" action=".">
-		<input type="hidden" name="action" value="edit">
-		<input type="hidden" name="kind" value="%s">
-		<input type="hidden" name="key" value="%s">
-		<input type="hidden" name="parent_key" value="%s">
-		<table>
-	`, calendar.Key.Kind, calendar.maybeKey(), calendar.Key.Parent.Encode())
-
-	formFields(w, calendar)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
-	fmt.Fprintf(w, `
-		</table>
-		</form>
-		<hr>
-	`)
-
-	return nil
-}

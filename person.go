@@ -72,39 +72,3 @@ func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) err
 
 	return nil
 }
-
-func renderPersonForm(w io.Writer, client *datastore.Client, person *Entity) error {
-	fmt.Fprintf(w, `
-		<hr>
-		<form name="personform" method="post" action=".">
-			<input type="hidden" name="action" value="edit">
-			<input type="hidden" name="kind" value="%s">
-			<input type="hidden" name="key" value="%s">
-			<table>
-	`, person.Key.Kind, person.maybeKey())
-
-	formFields(w, person)
-	// props = Person.properties()
-	// self.formFields(person)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
-	propname := "category"
-	fmt.Fprintf(w, `
-			</table>
-		</form>
-		<script>
-			document.personform.%s.focus();
-		</script>
-		<hr>
-`, propname)
-	if person.maybeKey() != "" {
-		fmt.Fprintf(w, `
-			<a href="?action=create&kind=Contact&parent_key=%s">[+Contact]</a>
-			&nbsp;
-			<a href="?action=create&kind=Address&parent_key=%s">[+Address]</a>
-			&nbsp;
-			<a href="?action=create&kind=Calendar&parent_key=%s">[+Calendar]</a>
-	  	`, person.Key.Encode(), person.Key.Encode(), person.Key.Encode())
-	}
-
-	return nil
-}

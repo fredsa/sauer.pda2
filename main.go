@@ -84,21 +84,6 @@ func renderView(w io.Writer, client *datastore.Client, entity *Entity) error {
 	}
 }
 
-func renderForm(w io.Writer, client *datastore.Client, entity *Entity) error {
-	switch entity.Key.Kind {
-	case "Person":
-		return renderPersonForm(w, client, entity)
-	case "Contact":
-		return renderContactForm(w, entity)
-	case "Address":
-		return renderAddressForm(w, entity)
-	case "Calendar":
-		return renderCalendarForm(w, entity)
-	default:
-		return errors.New(fmt.Sprintf("Unknown kind: %s", entity.Key.Kind))
-	}
-}
-
 func getValue(r *http.Request, name string) string {
 	value := r.URL.Query().Get(name)
 	if value == "" {
@@ -250,7 +235,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 				},
 			}
 			renderPremable(w, u, q)
-			renderForm(w, client, &entity)
+			renderForm(w, &entity)
 			renderPostamble(w, u, q)
 		case "view":
 			entity, err := requestToRootEntity(r, client)
@@ -270,7 +255,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 			if r.Method == "POST" {
 				renderView(w, client, entity)
 			} else {
-				renderForm(w, client, entity)
+				renderForm(w, entity)
 			}
 			renderPostamble(w, u, q)
 		case "fix":

@@ -138,7 +138,7 @@ func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity,
 		}
 		err := e.fixAndSave(client)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to save %v: %v", e.Key.Kind, err))
+			return nil, errors.New(fmt.Sprintf("Failed to save %v: %v", e, err))
 		}
 
 		return e, nil
@@ -146,7 +146,7 @@ func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity,
 		var e Entity
 		err = client.Get(ctx, dbkey, &e)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey.Kind, err))
+			return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey, err))
 		}
 		return &e, nil
 	}
@@ -260,6 +260,22 @@ func (person *Entity) displayName() string {
 	return t
 }
 
+func renderForm(w io.Writer, entity *Entity) {
+	fmt.Fprintf(w, `
+		<hr>
+		<form name="myform" method="post" action=".">
+			<input type="hidden" name="action" value="edit">
+			<table>
+	`)
+	formFields(w, entity)
+	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
+	fmt.Fprintf(w, `
+			</table>
+		</form>
+		<hr>
+	`)
+}
+
 func formFields(w io.Writer, entity *Entity) {
 	t := reflect.TypeOf(entity).Elem()
 	v := reflect.ValueOf(entity).Elem()
@@ -274,7 +290,10 @@ func formFields(w io.Writer, entity *Entity) {
 		}
 
 		forkind := field.Tag.Get("forkind")
-		if forkind == "hidden" {
+		if field.Name == "Key" {
+			color = "gray"
+			html = fmt.Sprintf(`<input type="text" name="key" value="%s"> %s`, entity.Key.Encode(), value)
+		} else if forkind == "hidden" {
 			color = "gray"
 			html = fmt.Sprintf(`[HIDDEN] %s`, value)
 		} else if forkind != "" && forkind != entity.Key.Kind {

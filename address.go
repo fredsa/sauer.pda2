@@ -52,25 +52,3 @@ func renderAddressView(w io.Writer, address *Entity) error {
 
 	return nil
 }
-
-func renderAddressForm(w io.Writer, address *Entity) error {
-	fmt.Fprintf(w, `
-		<hr>
-		<form name="addressform" method="post" action=".">
-		<input type="hidden" name="action" value="edit">
-		<input type="hidden" name="kind" value="%s">
-		<input type="hidden" name="key" value="%s">
-		<input type="hidden" name="parent_key" value="%s">
-		<table>
-	`, address.Key.Kind, address.maybeKey(), address.Key.Parent.Encode())
-
-	formFields(w, address)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
-	fmt.Fprintf(w, `
-		</table>
-		</form>
-		<hr>
-	`)
-
-	return nil
-}

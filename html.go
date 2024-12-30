@@ -114,7 +114,7 @@ func renderPremable(w io.Writer, u *user.User, q string) {
 	fmt.Fprintf(w, `<br><br>`)
 }
 
-func renderPostamble(w io.Writer, u *user.User, q string) {
+func renderPostamble(w io.Writer, u *user.User) {
 	if isDev || slices.Contains(ADMINS_FREDSA, u.Email) {
 		fmt.Fprintf(w, `
 		<br>

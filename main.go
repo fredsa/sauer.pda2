@@ -102,7 +102,7 @@ func intersection(a, b []*datastore.Key) []*datastore.Key {
 	return result
 }
 
-func tasknotifyHandler(w http.ResponseWriter, r *http.Request, client *datastore.Client) error {
+func tasknotifyHandler(w http.ResponseWriter, client *datastore.Client) error {
 	// loc, err := time.LoadLocation("America/Los_Angeles")
 	// if err != nil {
 	// 	log.Fatalf("Failed to load time location: %v", err)
@@ -119,14 +119,14 @@ func tasknotifyHandler(w http.ResponseWriter, r *http.Request, client *datastore
 		return errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
 	}
 
-	fmt.Fprintf(w, "Found %d calendar entries", len(entities))
+	fmt.Fprintf(w, "Reviewing %d calendar entries\n", len(entities))
 	for _, e := range entities {
 		if !e.Enabled {
 			continue
 		}
 		mmdd := e.FirstOccurrence.Format("01-02")
 		if mmdd == nowmmdd {
-			fmt.Fprintf(w, "MATCH %s %s %v", mmdd, nowmmdd, e.Occasion)
+			fmt.Fprintf(w, "MATCH %s %s %v\n", mmdd, nowmmdd, e.Occasion)
 		} else {
 			// fmt.Fprintf(w,"no match %s %s %v", mmdd, nowmmdd, e.Occasion)
 		}
@@ -148,7 +148,7 @@ func tasknotifyHandler(w http.ResponseWriter, r *http.Request, client *datastore
 	//   log_and_mail()
 }
 
-func searchHandler(w http.ResponseWriter, r *http.Request, client *datastore.Client, u *user.User, q string) error {
+func searchHandler(w http.ResponseWriter, client *datastore.Client, u *user.User, q string) error {
 	keys := []*datastore.Key{}
 	q = strings.TrimSpace(strings.ToLower(q))
 	qlist := regexp.MustCompile(`\s+`).Split(q, -1)
@@ -163,7 +163,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request, client *datastore.Cli
 			if err != nil {
 				return errors.New(fmt.Sprintf("Failed to fetch keys for kind %s, word %s: %v", kind, qword, err))
 			}
-			log.Printf("kind=%s, qword=%s, ks=%q", kind, qword, ks)
+			// log.Printf("Found kind=%s, qword=%s, ks=%q", kind, qword, ks)
 			wordkeys = append(wordkeys, ks...)
 		}
 
@@ -192,7 +192,7 @@ func searchHandler(w http.ResponseWriter, r *http.Request, client *datastore.Cli
 	for _, entity := range entities {
 		renderView(w, client, &entity)
 	}
-	renderPostamble(w, u, q)
+	renderPostamble(w, u)
 
 	return nil
 }
@@ -226,7 +226,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 	// TODO Fix multi word search.
 	// TODO Search results should all be Person kind.
 	if q != "" {
-		searchHandler(w, r, client, u, q)
+		searchHandler(w, client, u, q)
 	} else {
 		switch action {
 		case "create":
@@ -242,7 +242,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 			}
 			renderPremable(w, u, q)
 			renderForm(w, &entity)
-			renderPostamble(w, u, q)
+			renderPostamble(w, u)
 		case "view":
 			// TODO Here, or elsewhere, make this view the root entity.
 			entity, err := requestToEntity(r, client)
@@ -251,7 +251,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 			}
 			renderPremable(w, u, q)
 			renderPersonView(w, client, entity)
-			renderPostamble(w, u, q)
+			renderPostamble(w, u)
 		case "edit":
 			entity, err := requestToEntity(r, client)
 			if err != nil {
@@ -268,7 +268,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 			} else {
 				renderPremable(w, u, q)
 				renderForm(w, entity)
-				renderPostamble(w, u, q)
+				renderPostamble(w, u)
 			}
 		case "fix":
 			// count = 0
@@ -284,7 +284,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 			// fmt.Fprintf(w, `DONE<br>`)
 		default:
 			renderPremable(w, u, q)
-			renderPostamble(w, u, q)
+			renderPostamble(w, u)
 		}
 	}
 
@@ -301,7 +301,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Runs daily from `cron.yaml`, or manually from admin link.
 	if r.URL.Path == "/task/notify" {
-		err = tasknotifyHandler(w, r, client)
+		err = tasknotifyHandler(w, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return

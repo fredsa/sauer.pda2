@@ -1,4 +1,4 @@
-module main
+module pda
 
 go 1.23.4
 

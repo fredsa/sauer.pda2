@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
+	"google.golang.org/appengine/user"
 	"google.golang.org/appengine/v2"
 	"google.golang.org/appengine/v2/mail"
-	"google.golang.org/appengine/v2/user"
 )
 
 // https://cloud.google.com/appengine/docs/standard/go/runtime#environment_variables
@@ -66,9 +66,14 @@ func main() {
 		}
 	} else {
 		defaultVersionOrigin = fmt.Sprintf("https://%s.appspot.com", projectID)
+
+		// Legacy App Engine APIs require `appengine.Main` to have been called.
 		appengine.Main()
 	}
+}
 
+func isAdmin(ctx context.Context) bool {
+	return isDev || user.IsAdmin(ctx)
 }
 
 func enabledText(enabled bool) string {
@@ -126,7 +131,7 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 		return errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
 	}
 
-	fmt.Fprintf(w, "Comparing %d enabled calendar entries against today's date: %v\n", len(events), nowmmdd)
+	fmt.Fprintf(w, "Comparing %d enabled calendar entries ragainst today's date: %v\n", len(events), nowmmdd)
 	for _, event := range events {
 		if !event.Enabled {
 			continue
@@ -140,7 +145,7 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 			event := fmt.Sprintf("%s %s %s", event.FirstOccurrence.Format("2006-01-02"), event.Occasion, event.Comments)
 			body := fmt.Sprintf("%s\n\n%s\n", person.displayName(), person.viewURL())
 			subject := fmt.Sprintf("%s %s", projectID, event)
-			fmt.Fprintf(w, "MATCH %s %s %v\n", mmdd, nowmmdd, event)
+			fmt.Fprintf(w, "MATCH %v\n", event)
 
 			msg := &mail.Message{
 				Sender:  sender,
@@ -160,22 +165,9 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 	}
 
 	return nil
-
-	//   now_mm_dd = now.strftime("%m/%d")
-	//   log += "Searching for calendar entities for %s ...\n" % now_mm_dd
-
-	//   for calendar in Calendar.all():
-	//     if not calendar.enabled:
-	//       continue
-	//     when = calendar.first_occurrence
-	//     if when.strftime("%m/%d") == now_mm_dd:
-	//       log += "%s\n" % calendar.viewUrl()
-	//       taskqueue.add(url='/task/mail', params={'key': calendar.key()})
-	//   log += "Done"
-	//   log_and_mail()
 }
 
-func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, u *user.User, q string) error {
+func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, q string) error {
 	keys := []*datastore.Key{}
 	q = strings.TrimSpace(strings.ToLower(q))
 	qlist := regexp.MustCompile(`\s+`).Split(q, -1)
@@ -214,33 +206,17 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 		return errors.New(fmt.Sprintf("Failed to fetch entities with keys %v: %v", keys, err))
 	}
 
-	renderPremable(w, u, q)
+	renderPremable(w, ctx, q)
 	fmt.Fprintf(w, "<div>%d result(s)</div>", len(entities))
 	for _, entity := range entities {
 		renderView(w, ctx, client, &entity)
 	}
-	renderPostamble(w, u)
+	renderPostamble(ctx, w)
 
 	return nil
 }
 
 func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
-	u := user.Current(ctx)
-	// log.Printf("user: %v\n", u)
-	if u == nil {
-		// dest := r.URL.String()
-		// url, err := user.LoginURL(ctx, dest)
-		// if err != nil {
-		// 	log.Fatalf("Failed to generate login URL: %v\n", err)
-		// }
-		// http.Redirect(w, r, url, http.StatusFound)
-		// return
-		u = &user.User{
-			Email: "someone@gmail.com",
-			Admin: true,
-		}
-	}
-
 	q := getValue(r, "q")
 	action := getValue(r, "action")
 	// kind := getValue(r, "kind")
@@ -253,7 +229,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 	// TODO Fix multi word search.
 	// TODO Search results should all be Person kind.
 	if q != "" {
-		searchHandler(w, ctx, client, u, q)
+		searchHandler(w, ctx, client, q)
 	} else {
 		switch action {
 		case "create":
@@ -267,18 +243,18 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 				// },
 				Key: dbkey,
 			}
-			renderPremable(w, u, q)
+			renderPremable(w, ctx, q)
 			renderForm(w, &entity)
-			renderPostamble(w, u)
+			renderPostamble(ctx, w)
 		case "view":
 			// TODO Here, or elsewhere, make this view the root entity.
 			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
 				return errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))
 			}
-			renderPremable(w, u, q)
+			renderPremable(w, ctx, q)
 			renderPersonView(w, ctx, client, entity)
-			renderPostamble(w, u)
+			renderPostamble(ctx, w)
 		case "edit":
 			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
@@ -293,9 +269,9 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 				http.Redirect(w, r, fmt.Sprintf("/?action=view&key=%s", key.Encode()), http.StatusFound)
 				return nil
 			} else {
-				renderPremable(w, u, q)
+				renderPremable(w, ctx, q)
 				renderForm(w, entity)
-				renderPostamble(w, u)
+				renderPostamble(ctx, w)
 			}
 		case "fix":
 			// count = 0
@@ -310,8 +286,8 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 			// }
 			// fmt.Fprintf(w, `DONE<br>`)
 		default:
-			renderPremable(w, u, q)
-			renderPostamble(w, u)
+			renderPremable(w, ctx, q)
+			renderPostamble(ctx, w)
 		}
 	}
 
@@ -319,47 +295,8 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	rctx := r.Context()
-	log.Printf("request ctx=%p %v", &rctx, rctx)
-
-	// Context for the in-flight HTTP request.
+	// App Engine context for the in-flight HTTP request.
 	ctx := appengine.NewContext(r)
-	log.Printf("appengine.NewContext=%p %v", &ctx, ctx)
-
-	bgctx := context.Background()
-	log.Printf("context.Background()=%p %v", &bgctx, bgctx)
-
-	log.Printf("appengine.AppID(ctx)=%v", appengine.AppID(ctx))
-	log.Printf("appengine.AppID(rctx)=%v", appengine.AppID(rctx))
-	log.Printf("appengine.AppID(bgctx)=%v", appengine.AppID(bgctx))
-
-	log.Printf("appengine.IsAppEngine()=%v", appengine.IsAppEngine())
-	log.Printf("appengine.IsDevAppServer()=%v", appengine.IsDevAppServer())
-	log.Printf("appengine.IsFlex()=%v", appengine.IsFlex())
-	log.Printf("appengine.IsSecondGen()=%v", appengine.IsSecondGen())
-	if !isDev {
-		log.Printf("appengine.IsStandard()=%v", appengine.IsStandard()) // Requires http://metadata/computeMetadata/v1/instance/attributes/gae_backend_instance
-		log.Printf("appengine.InstanceID()=%v", appengine.InstanceID()) // Requires http://metadata/computeMetadata/v1/instance/attributes/gae_backend_instance
-	}
-
-	log.Printf("user.Current(ctx)=%v", user.Current(ctx))
-	log.Printf("user.Current(rctx)=%v", user.Current(rctx))
-	log.Printf("user.Current(bgctx)=%v", user.Current(bgctx))
-
-	log.Printf("user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
-	log.Printf("user.IsAdmin(rctx)=%v", user.IsAdmin(rctx))
-	log.Printf("user.IsAdmin(bgctx)=%v", user.IsAdmin(bgctx))
-
-	if !isDev {
-		u, e := user.LoginURL(ctx, "/foo") // Requires http://appengine.googleapis.internal:10001/rpc_http
-		log.Printf("user.LoginURL(ctx, /foo)=%v e=%v", u, e)
-
-		u, e = user.LoginURL(rctx, "/foo")
-		log.Printf("user.LoginURL(rctx, /foo)=%v e=%v", u, e)
-
-		u, e = user.LoginURL(bgctx, "/foo")
-		log.Printf("user.LoginURL(bgctx, /foo)=%v e=%v", u, e)
-	}
 
 	client, err := datastore.NewClient(ctx, projectID)
 	if err != nil {

@@ -1,15 +1,24 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
-	"slices"
 
 	"google.golang.org/appengine/v2/user"
 )
 
-func renderPremable(w io.Writer, u *user.User, q string) {
+func renderPremable(w io.Writer, ctx context.Context, q string) {
+	u := user.Current(ctx)
+	if u == nil && isDev {
+		u = &user.User{Email: "someone@gmail.com"}
+	}
+
+	userlabel := ""
+	if isAdmin(ctx) {
+		userlabel = " (Admin)"
+	}
 	fmt.Fprintf(w, `
 <!DOCTYPE html>
 <html>
@@ -93,52 +102,46 @@ func renderPremable(w io.Writer, u *user.User, q string) {
 		</head>
 		<body class="pda">
 			<a href="/" class="title">PDA2<span class="go">GO</span></a></a>
-			<div class="email">%s</div>
+			<div class="email">%s%s</div>
 			<form name="searchform" method="get">
-				<!--
-				<input type="checkbox" name="includedisabled"> Include Disabled Entries<br>
-				<br>
-				<input type="radio" name="format" checked value="verbose"> Verbose (regular) results<br>
-				<input type="radio" name="format"  value="compact"> Compact results<br>
-				-->
-
 				Search: <input type="text" name="q" value="%s"> <input type="submit" value="Go"><br>
 			</form>
 
 			<hr>
 	`,
 		u.Email,
+		userlabel,
 		q)
 
 	renderCreateEntity(w, "Person", nil)
 	fmt.Fprintf(w, `<br><br>`)
 }
 
-func renderPostamble(w io.Writer, u *user.User) {
-	if isDev || slices.Contains(ADMINS_FREDSA, u.Email) {
+func renderPostamble(ctx context.Context, w io.Writer) {
+	if isAdmin(ctx) {
 		fmt.Fprintf(w, `
-		<br>
-		<div><a class="admin" href="/_ah/admin">/_ah/admin</a></div>
-		<div><a class="admin" href="/_ah/stats">/_ah/stats</a></div>
-		<div><a class="admin" href="/task/notify">/task/notify</a></div>
+			<br>
+			<div><a class="admin" href="/_ah/admin">/_ah/admin</a></div>
+			<div><a class="admin" href="/_ah/stats">/_ah/stats</a></div>
+			<div><a class="admin" href="/task/notify">/task/notify</a></div>
 		`)
 	}
 
 	fmt.Fprintf(w, `
-	<script>
-	document.searchform.q.focus();
-	document.searchform.q.select();
-	</script>
+		<script>
+			document.searchform.q.focus();
+			document.searchform.q.select();
+		</script>
 	`)
 
 	fmt.Fprintf(w, `
-		<div class="powered">
-			<span class="version">%s</span>,
-			powered by Go on App Engine
-			(%s %s)
-		</div>
-	</body>
-	</html>
+			<div class="powered">
+				version <span class="version">%s</span>,
+				powered by Go on App Engine
+				(%s %s)
+			</div>
+		</body>
+		</html>
     `,
 		os.Getenv(GAE_VERSION),
 		os.Getenv(GAE_ENV),

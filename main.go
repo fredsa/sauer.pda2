@@ -35,41 +35,34 @@ var emailTo []string
 
 var defaultVersionOrigin = "unset-default-version-origin"
 
-func main() {
-	http.HandleFunc("/", indexHandler)
-
+func init() {
 	projectID = os.Getenv(GOOGLE_CLOUD_PROJECT)
 	isDev = os.Getenv(GAE_APPLICATION) == ""
-	port := os.Getenv(PORT)
-
-	// https://cloud.google.com/appengine/docs/standard/services/mail?tab=go#who_can_send_mail
-	// - The Gmail or Google Workspace Account of the user who is currently signed in
-	// - Any email address of the form anything@[MY_PROJECT_ID].appspotmail.com or anything@[MY_PROJECT_NUMBER].appspotmail.com
-	// - Any email address listed in the Google Cloud console under Email API Authorized Senders:
-	//   https://console.cloud.google.com/appengine/settings/emailsenders?project=sauer-pda
-	sender = fmt.Sprintf("pda@%s.appspotmail.com", projectID)
-	// emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
-	emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
 
 	if isDev {
-		port = "4200"
-		defaultVersionOrigin = "http://localhost:" + port
+		_ = os.Setenv(PORT, "4200")
+		port := os.Getenv(PORT)
 		_ = os.Setenv(GAE_APPLICATION, "my-app-id")
 		_ = os.Setenv(GAE_RUNTIME, "go123456")
 		_ = os.Setenv(GAE_VERSION, "my-version")
 		_ = os.Setenv(GAE_ENV, "standard")
 		emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
-
-		log.Printf("Listening on port %s", port)
-		if err := http.ListenAndServe(":"+port, nil); err != nil {
-			log.Fatalf("Failed to listen and serve: %v", err)
-		}
+		defaultVersionOrigin = "http://localhost:" + port
 	} else {
 		defaultVersionOrigin = fmt.Sprintf("https://%s.appspot.com", projectID)
-
-		// Legacy App Engine APIs require `appengine.Main` to have been called.
-		appengine.Main()
 	}
+
+	// Register handlers in init() per `appengine.Main()` documentation.
+	http.HandleFunc("/", indexHandler)
+}
+
+func main() {
+	if isDev {
+		log.Printf("appengine.Main() will listen: %s", defaultVersionOrigin)
+	}
+
+	// Standard App Engine APIs require `appengine.Main` to have been called.
+	appengine.Main()
 }
 
 func isAdmin(ctx context.Context) bool {
@@ -119,6 +112,16 @@ func intersection(a, b []*datastore.Key) []*datastore.Key {
 }
 
 func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
+	// https://cloud.google.com/appengine/docs/standard/services/mail?tab=go#who_can_send_mail
+	// - The Gmail or Google Workspace Account of the user who is currently signed in
+	// - Any email address of the form anything@[MY_PROJECT_ID].appspotmail.com or anything@[MY_PROJECT_NUMBER].appspotmail.com
+	// - Any email address listed in the Google Cloud console under Email API Authorized Senders:
+	//   https://console.cloud.google.com/appengine/settings/emailsenders?project=sauer-pda
+	sender = fmt.Sprintf("pda@%s.appspotmail.com", projectID)
+
+	// emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
+	emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
+
 	// loc, err := time.LoadLocation("America/Los_Angeles")
 	// if err != nil {
 	// 	log.Fatalf("Failed to load time location: %v", err)

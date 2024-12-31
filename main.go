@@ -244,7 +244,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 				Key: dbkey,
 			}
 			renderPremable(w, ctx, q)
-			renderForm(w, &entity)
+			renderForm(w, ctx, &entity)
 			renderPostamble(ctx, w)
 		case "view":
 			// TODO Here, or elsewhere, make this view the root entity.
@@ -270,7 +270,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 				return nil
 			} else {
 				renderPremable(w, ctx, q)
-				renderForm(w, entity)
+				renderForm(w, ctx, entity)
 				renderPostamble(ctx, w)
 			}
 		case "fix":

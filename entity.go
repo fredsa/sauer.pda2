@@ -253,14 +253,14 @@ func (person *Entity) displayName() string {
 	return t
 }
 
-func renderForm(w io.Writer, entity *Entity) {
+func renderForm(w io.Writer, ctx context.Context, entity *Entity) {
 	fmt.Fprintf(w, `
 		<hr>
 		<form name="myform" method="post" action=".">
 			<input type="hidden" name="action" value="edit">
 			<table>
 	`)
-	renderFormFields(w, entity)
+	renderFormFields(w, ctx, entity)
 	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
 	fmt.Fprintf(w, `
 			</table>
@@ -282,7 +282,7 @@ func renderCreateEntity(w io.Writer, kind string, parentKey *datastore.Key) {
 	fmt.Fprintf(w, `<a href="?action=create&key=%s">[+%s]</a>&nbsp;`, childkey.Encode(), kind)
 }
 
-func renderFormFields(w io.Writer, entity *Entity) {
+func renderFormFields(w io.Writer, ctx context.Context, entity *Entity) {
 	t := reflect.TypeOf(entity).Elem()
 	v := reflect.ValueOf(entity).Elem()
 	for i := 0; i < t.NumField(); i++ {
@@ -297,12 +297,18 @@ func renderFormFields(w io.Writer, entity *Entity) {
 
 		forkind := field.Tag.Get("forkind")
 		if field.Name == "Key" {
+			if !isAdmin(ctx) {
+				continue
+			}
 			color = "gray"
 			html = fmt.Sprintf(`
-				<input type="hidden" name="key" value="%s">
-				<code>%s<br>%s<code>
-			`, entity.Key.Encode(), entity.Key.Encode(), value)
+					<input type="hidden" name="key" value="%s">
+					<code>%s<br>%s<code>
+				`, entity.Key.Encode(), entity.Key.Encode(), value)
 		} else if forkind == "hidden" {
+			if !isAdmin(ctx) {
+				continue
+			}
 			color = "gray"
 			html = fmt.Sprintf(`<code>%q</code>`, value)
 		} else if forkind != "" && forkind != entity.Key.Kind {
@@ -310,7 +316,7 @@ func renderFormFields(w io.Writer, entity *Entity) {
 			// color = "purple"
 			// html = fmt.Sprintf(`[SKIP] forkind=%s!=%s %s=%s`, forkind, entity.Key.Kind, field.Name, value)
 		} else if field.Tag.Get("form") == "textarea" {
-			html = fmt.Sprintf(`<textarea name="%s" style="width: 50em; height: 20em; font-family: monospace;">%s</textarea>`, field.Name, value)
+			html = fmt.Sprintf(`<textarea name="%s">%s</textarea>`, field.Name, value)
 		} else if field.Tag.Get("form") == "select" {
 			values := choices[field.Name]
 			html = fmt.Sprintf(`<select name="%s" size="%d">`, field.Name, len(values))
@@ -323,7 +329,7 @@ func renderFormFields(w io.Writer, entity *Entity) {
 			}
 			html += `</select>`
 		} else if field.Type.Kind() == reflect.String {
-			html = fmt.Sprintf(`<input type="text" style="width: 50em;" name="%s" value="%s">`, field.Name, value)
+			html = fmt.Sprintf(`<input type="text" name="%s" value="%s">`, field.Name, value)
 		} else if field.Type.Kind() == reflect.Bool {
 			val := false
 			if !entity.Key.Incomplete() {

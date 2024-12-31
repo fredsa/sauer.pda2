@@ -26,8 +26,17 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 		<meta name="viewport" content="width=device-width,initial-scale=1.0">
 		<title>PDA2GO</title>
 		<style type="text/css">
-			input[type=text],textarea {
+			input[type=text],option,textarea {
 				background-color: #eff9fb;
+			}
+			input[type=text],textarea {
+				width: 30em;
+				max-width: calc(100%% - 8px);
+			}
+			textarea {
+				width: 50em;
+				height: 20em;
+				font-family: monospace;
 			}
 			body {
 				line-height: 1.3em;
@@ -80,7 +89,7 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 			.powered {
 				color: #777;
 				font-style: italic;
-				margin-left: 42%%;
+				text-align: center;
 			}
 			.email {
 				position: absolute;
@@ -88,7 +97,7 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 				top: 0.2em;
 				color: #444;
 			}
-			.disabled , .disabled * {
+			.disabled, .disabled * {
 				color: #ccc !important;
 			}
 			a.admin, a:visited.admin {
@@ -104,7 +113,7 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 			<a href="/" class="title">PDA2<span class="go">GO</span></a></a>
 			<div class="email">%s%s</div>
 			<form name="searchform" method="get">
-				Search: <input type="text" name="q" value="%s"> <input type="submit" value="Go"><br>
+				<input type="text" name="q" value="%s"> <input type="submit" value="Search"><br>
 			</form>
 
 			<hr>

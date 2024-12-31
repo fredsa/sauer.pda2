@@ -36,6 +36,8 @@ var emailTo []string
 var defaultVersionOrigin = "unset-default-version-origin"
 
 func main() {
+	http.HandleFunc("/", indexHandler)
+
 	projectID = os.Getenv(GOOGLE_CLOUD_PROJECT)
 	isDev = os.Getenv(GAE_APPLICATION) == ""
 	port := os.Getenv(PORT)
@@ -57,16 +59,16 @@ func main() {
 		_ = os.Setenv(GAE_VERSION, "my-version")
 		_ = os.Setenv(GAE_ENV, "standard")
 		emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
+
+		log.Printf("Listening on port %s", port)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			log.Fatalf("Failed to listen and serve: %v", err)
+		}
 	} else {
 		defaultVersionOrigin = fmt.Sprintf("https://%s.appspot.com", projectID)
+		appengine.Main()
 	}
 
-	http.HandleFunc("/", indexHandler)
-
-	log.Printf("Listening on port %s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Failed to listen and serve: %v", err)
-	}
 }
 
 func enabledText(enabled bool) string {
@@ -317,8 +319,48 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	rctx := r.Context()
+	log.Printf("request ctx=%p %v", &rctx, rctx)
+
 	// Context for the in-flight HTTP request.
 	ctx := appengine.NewContext(r)
+	log.Printf("appengine.NewContext=%p %v", &ctx, ctx)
+
+	bgctx := context.Background()
+	log.Printf("context.Background()=%p %v", &bgctx, bgctx)
+
+	log.Printf("appengine.AppID(ctx)=%v", appengine.AppID(ctx))
+	log.Printf("appengine.AppID(rctx)=%v", appengine.AppID(rctx))
+	log.Printf("appengine.AppID(bgctx)=%v", appengine.AppID(bgctx))
+
+	log.Printf("appengine.IsAppEngine()=%v", appengine.IsAppEngine())
+	log.Printf("appengine.IsDevAppServer()=%v", appengine.IsDevAppServer())
+	log.Printf("appengine.IsFlex()=%v", appengine.IsFlex())
+	log.Printf("appengine.IsSecondGen()=%v", appengine.IsSecondGen())
+	if !isDev {
+		log.Printf("appengine.IsStandard()=%v", appengine.IsStandard()) // Requires http://metadata/computeMetadata/v1/instance/attributes/gae_backend_instance
+		log.Printf("appengine.InstanceID()=%v", appengine.InstanceID()) // Requires http://metadata/computeMetadata/v1/instance/attributes/gae_backend_instance
+	}
+
+	log.Printf("user.Current(ctx)=%v", user.Current(ctx))
+	log.Printf("user.Current(rctx)=%v", user.Current(rctx))
+	log.Printf("user.Current(bgctx)=%v", user.Current(bgctx))
+
+	log.Printf("user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
+	log.Printf("user.IsAdmin(rctx)=%v", user.IsAdmin(rctx))
+	log.Printf("user.IsAdmin(bgctx)=%v", user.IsAdmin(bgctx))
+
+	if !isDev {
+		u, e := user.LoginURL(ctx, "/foo") // Requires http://appengine.googleapis.internal:10001/rpc_http
+		log.Printf("user.LoginURL(ctx, /foo)=%v e=%v", u, e)
+
+		u, e = user.LoginURL(rctx, "/foo")
+		log.Printf("user.LoginURL(rctx, /foo)=%v e=%v", u, e)
+
+		u, e = user.LoginURL(bgctx, "/foo")
+		log.Printf("user.LoginURL(bgctx, /foo)=%v e=%v", u, e)
+	}
+
 	client, err := datastore.NewClient(ctx, projectID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create client: %v", err), http.StatusInternalServerError)

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	"google.golang.org/appengine/v2"
 	"google.golang.org/appengine/v2/mail"
 	"google.golang.org/appengine/v2/user"
 )
@@ -58,7 +57,8 @@ func main() {
 		_ = os.Setenv(GAE_ENV, "standard")
 		emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
 	} else {
-		defaultVersionOrigin = "https://" + appengine.DefaultVersionHostname(ctx)
+		// defaultVersionOrigin = "https://" + appengine.DefaultVersionHostname(ctx)
+		defaultVersionOrigin = fmt.Sprintf("https://%s.appspot.com", projectID)
 	}
 
 	ctx = context.Background()
@@ -69,8 +69,6 @@ func main() {
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Failed to listen and serve: %v", err)
 	}
-
-	// doit(os.Stdout)
 }
 
 func enabledText(enabled bool) string {

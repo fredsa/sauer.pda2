@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
-	"google.golang.org/appengine/user"
 	"google.golang.org/appengine/v2"
 	"google.golang.org/appengine/v2/mail"
+	"google.golang.org/appengine/v2/user"
 )
 
 // https://cloud.google.com/appengine/docs/standard/go/runtime#environment_variables
@@ -306,30 +306,36 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf(">>>>>>>>>> indexHandler: ctx=%v", ctx)
 
 	// Locally, nil
-	// Server, nil
+	// Server import user, nil
+	// Server import v2/user, `fredsa`
 	log.Printf("indexHandler: user.Current(ctx)=%v", user.Current(ctx))
 
 	// Locally, nil
-	// Server, nil
+	// Server import user, nil
+	// Server import v2/user, `fredsa`
 	log.Printf("indexHandler: user.Current(ctx)=%q", user.Current(ctx))
 
 	// Locally, nil
-	// Server, nil
+	// Server import user, nil
+	// Server import v2/user, `fredsa`
 	log.Printf("indexHandler: user.Current(ctx)=%s", user.Current(ctx))
 
 	// Locally, false
-	// Server, false
+	// Server import user, false
+	// Server import v2/user, true
 	log.Printf("indexHandler: user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
 
 	if !isDev() {
 		// Expected, `https://sauer-pda-dev.appspot.com/_ah/conflogin?continue=https://sauer-pda-dev.appspot.com/`
 		// Locally, err `service bridge HTTP failed: Post "http://appengine.googleapis.internal:10001/rpc_http": dial tcp: lookup appengine.googleapis.internal: no such host`
-		// Server, err `API error 2 (user: NOT_ALLOWED)`
+		// Server import user, err `API error 2 (user: NOT_ALLOWED)`
+		// Server import v2/user, `https://sauer-pda-dev.appspot.com/_ah/conflogin?continue=https://sauer-pda-dev.appspot.com/`
 		loginURL, err := user.LoginURL(ctx, "/")
 		log.Printf("indexHandler: user.LoginURL(ctx, \"/\")=%v err=%v", loginURL, err)
 
 		// Locally, err `service bridge HTTP failed: Post "http://appengine.googleapis.internal:10001/rpc_http": dial tcp: lookup appengine.googleapis.internal: no such host`
-		// Server, err `API error 2 (user: NOT_ALLOWED)`
+		// Server, import user, err `API error 2 (user: NOT_ALLOWED)`
+		// Server import v2/user, `https://sauer-pda-dev.appspot.com/_ah/conflogin?continue=https://sauer-pda-dev.appspot.com/`
 		logoutURL, err := user.LoginURL(ctx, "/")
 		log.Printf("indexHandler: user.LogoutURL(ctx, \"/\")=%v err=%v", logoutURL, err)
 	}

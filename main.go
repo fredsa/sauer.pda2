@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/datastore"
+	"google.golang.org/appengine/v2"
 	"google.golang.org/appengine/v2/mail"
 	"google.golang.org/appengine/v2/user"
 )
@@ -27,7 +28,6 @@ const GAE_RUNTIME = "GAE_RUNTIME"                   // Runtime in `app.yaml`.
 const GAE_VERSION = "GAE_VERSION"                   // App version.
 
 var ADMINS_FREDSA = []string{"fredsa@gmail.com", "fred@allen-sauer.com"}
-var ctx context.Context
 var projectID string
 var isDev = false
 var sender string
@@ -46,7 +46,8 @@ func main() {
 	// - Any email address listed in the Google Cloud console under Email API Authorized Senders:
 	//   https://console.cloud.google.com/appengine/settings/emailsenders?project=sauer-pda
 	sender = fmt.Sprintf("pda@%s.appspotmail.com", projectID)
-	emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
+	// emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
+	emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
 
 	if isDev {
 		port = "4200"
@@ -57,11 +58,8 @@ func main() {
 		_ = os.Setenv(GAE_ENV, "standard")
 		emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
 	} else {
-		// defaultVersionOrigin = "https://" + appengine.DefaultVersionHostname(ctx)
 		defaultVersionOrigin = fmt.Sprintf("https://%s.appspot.com", projectID)
 	}
-
-	ctx = context.Background()
 
 	http.HandleFunc("/", indexHandler)
 
@@ -79,10 +77,10 @@ func enabledText(enabled bool) string {
 	}
 }
 
-func renderView(w io.Writer, client *datastore.Client, entity *Entity) error {
+func renderView(w io.Writer, ctx context.Context, client *datastore.Client, entity *Entity) error {
 	switch entity.Key.Kind {
 	case "Person":
-		return renderPersonView(w, client, entity)
+		return renderPersonView(w, ctx, client, entity)
 	case "Contact":
 		return renderContactView(w, entity)
 	case "Address":
@@ -112,37 +110,36 @@ func intersection(a, b []*datastore.Key) []*datastore.Key {
 	return result
 }
 
-func tasknotifyHandler(w http.ResponseWriter, client *datastore.Client) error {
+func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
 	// loc, err := time.LoadLocation("America/Los_Angeles")
 	// if err != nil {
 	// 	log.Fatalf("Failed to load time location: %v", err)
 	// }
 	nowmmdd := time.Now().Format("01-02")
-	nowmmdd = "01-15"
-	log.Printf("NOW = %v", nowmmdd)
-
 	query := datastore.NewQuery("Calendar")
-	// query = query.FilterEntity(datastore.PropertyFilter{FieldName: "enabled", Operator: "=", Value: true})
+	query = query.FilterEntity(datastore.PropertyFilter{FieldName: "enabled", Operator: "=", Value: true})
 	var events []Entity
 	_, err := client.GetAll(ctx, query, &events)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
 	}
 
-	fmt.Fprintf(w, "Reviewing %d calendar entries\n", len(events))
+	fmt.Fprintf(w, "Comparing %d enabled calendar entries against today's date: %v\n", len(events), nowmmdd)
 	for _, event := range events {
 		if !event.Enabled {
 			continue
 		}
+
 		mmdd := event.FirstOccurrence.Format("01-02")
 		if mmdd == nowmmdd {
-			fmt.Fprintf(w, "MATCH %s %s %v\n", mmdd, nowmmdd, event.Occasion)
 			person := &Entity{}
 			err = client.Get(ctx, event.Key.Parent, person)
 
 			event := fmt.Sprintf("%s %s %s", event.FirstOccurrence.Format("2006-01-02"), event.Occasion, event.Comments)
 			body := fmt.Sprintf("%s\n\n%s\n", person.displayName(), person.viewURL())
 			subject := fmt.Sprintf("%s %s", projectID, event)
+			fmt.Fprintf(w, "MATCH %s %s %v\n", mmdd, nowmmdd, event)
+
 			msg := &mail.Message{
 				Sender:  sender,
 				To:      emailTo,
@@ -150,7 +147,11 @@ func tasknotifyHandler(w http.ResponseWriter, client *datastore.Client) error {
 				Body:    body,
 			}
 			mail.Send(ctx, msg)
-			log.Printf("Send %q\n", msg)
+			log.Printf("Sent email for event: %q\n", event)
+			log.Printf("- Sender: %s", sender)
+			log.Printf("- To: %s", emailTo)
+			log.Printf("- Subject: %s", subject)
+			log.Printf("- Body: %s", body)
 		} else {
 			// fmt.Fprintf(w,"no match %s %s %v", mmdd, nowmmdd, e.Occasion)
 		}
@@ -172,7 +173,7 @@ func tasknotifyHandler(w http.ResponseWriter, client *datastore.Client) error {
 	//   log_and_mail()
 }
 
-func searchHandler(w http.ResponseWriter, client *datastore.Client, u *user.User, q string) error {
+func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, u *user.User, q string) error {
 	keys := []*datastore.Key{}
 	q = strings.TrimSpace(strings.ToLower(q))
 	qlist := regexp.MustCompile(`\s+`).Split(q, -1)
@@ -214,14 +215,14 @@ func searchHandler(w http.ResponseWriter, client *datastore.Client, u *user.User
 	renderPremable(w, u, q)
 	fmt.Fprintf(w, "<div>%d result(s)</div>", len(entities))
 	for _, entity := range entities {
-		renderView(w, client, &entity)
+		renderView(w, ctx, client, &entity)
 	}
 	renderPostamble(w, u)
 
 	return nil
 }
 
-func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.Client) error {
+func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
 	u := user.Current(ctx)
 	// log.Printf("user: %v\n", u)
 	if u == nil {
@@ -250,7 +251,7 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 	// TODO Fix multi word search.
 	// TODO Search results should all be Person kind.
 	if q != "" {
-		searchHandler(w, client, u, q)
+		searchHandler(w, ctx, client, u, q)
 	} else {
 		switch action {
 		case "create":
@@ -269,15 +270,15 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 			renderPostamble(w, u)
 		case "view":
 			// TODO Here, or elsewhere, make this view the root entity.
-			entity, err := requestToEntity(r, client)
+			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
 				return errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))
 			}
 			renderPremable(w, u, q)
-			renderPersonView(w, client, entity)
+			renderPersonView(w, ctx, client, entity)
 			renderPostamble(w, u)
 		case "edit":
-			entity, err := requestToEntity(r, client)
+			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
 				return errors.New(fmt.Sprintf("Unable to convert request to entity: %v", err))
 			}
@@ -316,6 +317,8 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, client *datastore.C
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	// Context for the in-flight HTTP request.
+	ctx := appengine.NewContext(r)
 	client, err := datastore.NewClient(ctx, projectID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create client: %v", err), http.StatusInternalServerError)
@@ -325,7 +328,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Runs daily from `cron.yaml`, or manually from admin link.
 	if r.URL.Path == "/task/notify" {
-		err = tasknotifyHandler(w, client)
+		err = tasknotifyHandler(w, ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return
@@ -346,7 +349,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = mainPageHandler(w, r, client)
+	err = mainPageHandler(w, r, ctx, client)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to render main page: %v", err), http.StatusInternalServerError)
 	}

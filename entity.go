@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -100,7 +101,7 @@ func (entity *Entity) maybeKey() string {
 	}
 }
 
-func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity, err error) {
+func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Client) (entity *Entity, err error) {
 	key := getValue(r, "key")
 	dbkey, err := datastore.DecodeKey(key)
 
@@ -137,7 +138,7 @@ func requestToEntity(r *http.Request, client *datastore.Client) (entity *Entity,
 				value.SetString(v)
 			}
 		}
-		err := e.fixAndSave(client)
+		err := e.fixAndSave(ctx, client)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Failed to save %v: %v", e, err))
 		}
@@ -199,7 +200,7 @@ func (entity *Entity) words() []string {
 	return words
 }
 
-func (entity *Entity) fixAndSave(client *datastore.Client) error {
+func (entity *Entity) fixAndSave(ctx context.Context, client *datastore.Client) error {
 	entity.Words = entity.words()
 	key, err := client.Put(ctx, entity.Key, entity)
 	if err != nil {

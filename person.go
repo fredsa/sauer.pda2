@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html"
@@ -19,7 +20,7 @@ var categories = []string{
 	"Business Relations",
 }
 
-func renderPersonView(w io.Writer, client *datastore.Client, person *Entity) error {
+func renderPersonView(w io.Writer, ctx context.Context, client *datastore.Client, person *Entity) error {
 	name := html.EscapeString(person.displayName())
 	comments := html.EscapeString(person.Comments)
 	fmt.Fprintf(w, `

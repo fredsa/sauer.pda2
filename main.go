@@ -26,48 +26,49 @@ const GAE_APPLICATION = "GAE_APPLICATION"           // App id, with prefix.
 const GAE_ENV = "GAE_ENV"                           // `standard` in production.
 const GAE_RUNTIME = "GAE_RUNTIME"                   // Runtime in `app.yaml`.
 const GAE_VERSION = "GAE_VERSION"                   // App version.
+const DUMMY_APP_ID = "my-app-id"
 
 var ADMINS_FREDSA = []string{"fredsa@gmail.com", "fred@allen-sauer.com"}
-var projectID string
-var isDev = false
-var sender string
-var emailTo []string
-
-var defaultVersionOrigin = "unset-default-version-origin"
 
 func init() {
-	projectID = os.Getenv(GOOGLE_CLOUD_PROJECT)
-	isDev = os.Getenv(GAE_APPLICATION) == ""
-
-	if isDev {
-		_ = os.Setenv(PORT, "4200")
-		port := os.Getenv(PORT)
-		_ = os.Setenv(GAE_APPLICATION, "my-app-id")
-		_ = os.Setenv(GAE_RUNTIME, "go123456")
-		_ = os.Setenv(GAE_VERSION, "my-version")
-		_ = os.Setenv(GAE_ENV, "standard")
-		emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
-		defaultVersionOrigin = "http://localhost:" + port
-	} else {
-		defaultVersionOrigin = fmt.Sprintf("https://%s.appspot.com", projectID)
-	}
-
 	// Register handlers in init() per `appengine.Main()` documentation.
 	http.HandleFunc("/", indexHandler)
 }
 
 func main() {
-	if isDev {
-		log.Printf("appengine.Main() will listen: %s", defaultVersionOrigin)
+	if isDev() {
+		_ = os.Setenv(GAE_APPLICATION, DUMMY_APP_ID)
+		_ = os.Setenv(GAE_RUNTIME, "go123456")
+		_ = os.Setenv(GAE_VERSION, "my-version")
+		_ = os.Setenv(GAE_ENV, "standard")
+		_ = os.Setenv(PORT, "4200")
+		log.Printf("appengine.Main() will listen: %s", defaultVersionOrigin())
 	}
 
 	// Standard App Engine APIs require `appengine.Main` to have been called.
 	appengine.Main()
 }
 
+func defaultVersionOrigin() string {
+	if isDev() {
+		return "http://localhost:" + os.Getenv(PORT)
+	} else {
+		return fmt.Sprintf("https://%s.appspot.com", projectID())
+	}
+}
+
+func isDev() bool {
+	appid := os.Getenv(GAE_APPLICATION)
+	return appid == "" || appid == DUMMY_APP_ID
+}
+
+func projectID() string {
+	return os.Getenv(GOOGLE_CLOUD_PROJECT)
+}
+
 func isAdmin(ctx context.Context) bool {
 	log.Printf("user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
-	return isDev || user.IsAdmin(ctx)
+	return isDev() || user.IsAdmin(ctx)
 }
 
 func enabledText(enabled bool) string {
@@ -117,10 +118,10 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 	// - Any email address of the form anything@[MY_PROJECT_ID].appspotmail.com or anything@[MY_PROJECT_NUMBER].appspotmail.com
 	// - Any email address listed in the Google Cloud console under Email API Authorized Senders:
 	//   https://console.cloud.google.com/appengine/settings/emailsenders?project=sauer-pda
-	sender = fmt.Sprintf("pda@%s.appspotmail.com", projectID)
+	sender := fmt.Sprintf("pda@%s.appspotmail.com", projectID())
 
 	// emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
-	emailTo = []string{"Fred Sauer <fredsa@gmail.com>"}
+	emailTo := []string{"Fred Sauer <fredsa@gmail.com>"}
 
 	// loc, err := time.LoadLocation("America/Los_Angeles")
 	// if err != nil {
@@ -320,7 +321,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// Server, false
 	log.Printf("indexHandler: user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
 
-	if !isDev {
+	if !isDev() {
 		// Locally, err `service bridge HTTP failed: Post "http://appengine.googleapis.internal:10001/rpc_http": dial tcp: lookup appengine.googleapis.internal: no such host`
 		// Server, err `API error 2 (user: NOT_ALLOWED)`
 		loginURL, err := user.LoginURL(ctx, "foo")
@@ -336,7 +337,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// Server, `sauer-pda-dev`
 	log.Printf("indexHandler: appengine.AppID(ctx)=%v", appengine.AppID(ctx))
 
-	if !isDev {
+	if !isDev() {
 		// Locally, `` and logs `Get "http://metadata/computeMetadata/v1/instance/zone": dial tcp: lookup metadata: no such host`
 		// Server, `us-west1-1`
 		log.Printf("indexHandler: appengine.Datacenter(ctx)=%v", appengine.Datacenter(ctx))
@@ -346,7 +347,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// Server, `sauer-pda-dev.uw.r.appspot.com`
 	log.Printf("indexHandler: appengine.DefaultVersionHostname(ctx)=%v", appengine.DefaultVersionHostname(ctx))
 
-	if !isDev {
+	if !isDev() {
 		// Locally, panics `http: panic serving [::1]:64902: Metadata fetch failed for 'instance/attributes/gae_backend_instance': Get "http://metadata/computeMetadata/v1/instance/attributes/gae_backend_instance": dial tcp: lookup metadata: no such host`
 		// Server, `0066d924808f85e59480f4f834d89809739e28d68d0471e54a81ecfdd776e886ec44b9294369e983466180a7ef8a9dd24967183bc382a400c8a9d3f8f483ef2fac91a655321eeb3743b798cf97ca`
 		log.Printf("indexHandler: appengine.InstanceID()=%v", appengine.InstanceID())
@@ -372,7 +373,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// Server, true
 	log.Printf("indexHandler: appengine.IsStandard()=%v", appengine.IsStandard())
 
-	if !isDev {
+	if !isDev() {
 		// Locally, panics `http: panic serving [::1]:65140: Metadata fetch failed for 'instance/attributes/gae_backend_name': Get "http://metadata/computeMetadata/v1/instance/attributes/gae_backend_name": dial tcp: lookup metadata: no such host`
 		// Server, `default`
 		log.Printf("indexHandler: appengine.ModuleName(ctx)=%v", appengine.ModuleName(ctx))
@@ -386,20 +387,20 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// Server, `standard`
 	log.Printf("indexHandler: appengine.ServerSoftware()=%v", appengine.ServerSoftware())
 
-	if !isDev {
+	if !isDev() {
 		// Locally, err `service bridge HTTP failed: Post "http://appengine.googleapis.internal:10001/rpc_http": dial tcp: lookup appengine.googleapis.internal: no such host`
 		// Server, `sauer-pda-dev@appspot.gserviceaccount.com`
 		serviceAccount, err := appengine.ServiceAccount(ctx)
 		log.Printf("indexHandler: appengine.ServiceAccount(ctx)=%v err=%v", serviceAccount, err)
 	}
 
-	if !isDev {
+	if !isDev() {
 		// Locally, panics `http: panic serving [::1]:49339: Metadata fetch failed for 'instance/attributes/gae_backend_version': Get "http://metadata/computeMetadata/v1/instance/attributes/gae_backend_version": dial tcp: lookup metadata: no such host`
 		// Server, `20241231t122815.465917320654064374`
 		log.Printf("indexHandler: appengine.VersionID(ctx)=%v", appengine.VersionID(ctx))
 	}
 
-	client, err := datastore.NewClient(ctx, projectID)
+	client, err := datastore.NewClient(ctx, projectID())
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create client: %v", err), http.StatusInternalServerError)
 		return

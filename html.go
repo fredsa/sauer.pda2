@@ -11,7 +11,7 @@ import (
 
 func renderPremable(w io.Writer, ctx context.Context, q string) {
 	u := user.Current(ctx)
-	if u == nil && isDev {
+	if u == nil && isDev() {
 		u = &user.User{Email: "someone@gmail.com"}
 	}
 

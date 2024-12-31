@@ -218,7 +218,7 @@ func (entity *Entity) enabledText() string {
 func (entity *Entity) actionURL(action string) string {
 	// Include origin for a fully qualified URL.
 	return fmt.Sprintf("%s/?action=%s&kind=%s&key=%s",
-		defaultVersionOrigin,
+		defaultVersionOrigin(),
 		action,
 		entity.Key.Kind,
 		entity.Key.Encode(),

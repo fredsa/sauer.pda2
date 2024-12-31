@@ -154,7 +154,7 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 			event := fmt.Sprintf("%s %s %s", event.FirstOccurrence.Format("2006-01-02"), event.Occasion, event.Comments)
 			body := fmt.Sprintf("%s\n\n%s\n", person.displayName(), person.viewURL())
 			subject := fmt.Sprintf("%s %s", projectID(), event)
-			fmt.Fprintf(w, "MATCH %v\n", event)
+			fmt.Fprintf(w, "\n>>> MATCH %v\n", event)
 
 			msg := &mail.Message{
 				Sender:  sender,
@@ -168,8 +168,6 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 			log.Printf("- To: %s", emailTo)
 			log.Printf("- Subject: %s", subject)
 			log.Printf("- Body: %s", body)
-		} else {
-			// fmt.Fprintf(w,"no match %s %s %v", mmdd, nowmmdd, e.Occasion)
 		}
 	}
 

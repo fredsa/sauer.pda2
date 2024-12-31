@@ -130,8 +130,6 @@ func renderPostamble(ctx context.Context, w io.Writer) {
 	if isAdmin(ctx) {
 		fmt.Fprintf(w, `
 			<br>
-			<div><a class="admin" href="/_ah/admin">/_ah/admin</a></div>
-			<div><a class="admin" href="/_ah/stats">/_ah/stats</a></div>
 			<div><a class="admin" href="/task/notify">/task/notify</a></div>
 		`)
 	}

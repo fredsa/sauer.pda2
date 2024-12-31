@@ -149,7 +149,7 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 
 			event := fmt.Sprintf("%s %s %s", event.FirstOccurrence.Format("2006-01-02"), event.Occasion, event.Comments)
 			body := fmt.Sprintf("%s\n\n%s\n", person.displayName(), person.viewURL())
-			subject := fmt.Sprintf("%s %s", projectID, event)
+			subject := fmt.Sprintf("%s %s", projectID(), event)
 			fmt.Fprintf(w, "MATCH %v\n", event)
 
 			msg := &mail.Message{

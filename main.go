@@ -322,15 +322,16 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("indexHandler: user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
 
 	if !isDev() {
+		// Expected, `https://sauer-pda-dev.appspot.com/_ah/conflogin?continue=https://sauer-pda-dev.appspot.com/`
 		// Locally, err `service bridge HTTP failed: Post "http://appengine.googleapis.internal:10001/rpc_http": dial tcp: lookup appengine.googleapis.internal: no such host`
 		// Server, err `API error 2 (user: NOT_ALLOWED)`
-		loginURL, err := user.LoginURL(ctx, "foo")
-		log.Printf("indexHandler: user.LoginURL(ctx)=%v err=%v", loginURL, err)
+		loginURL, err := user.LoginURL(ctx, "/")
+		log.Printf("indexHandler: user.LoginURL(ctx, \"/\")=%v err=%v", loginURL, err)
 
 		// Locally, err `service bridge HTTP failed: Post "http://appengine.googleapis.internal:10001/rpc_http": dial tcp: lookup appengine.googleapis.internal: no such host`
 		// Server, err `API error 2 (user: NOT_ALLOWED)`
-		logoutURL, err := user.LoginURL(ctx, "foo")
-		log.Printf("indexHandler: user.LogoutURL(ctx)=%v err=%v", logoutURL, err)
+		logoutURL, err := user.LoginURL(ctx, "/")
+		log.Printf("indexHandler: user.LogoutURL(ctx, \"/\")=%v err=%v", logoutURL, err)
 	}
 
 	// Locally, value `os.Getenv("GAE_APPLICATION")`

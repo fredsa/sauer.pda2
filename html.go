@@ -15,10 +15,6 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 		u = &user.User{Email: "someone@gmail.com"}
 	}
 
-	userlabel := ""
-	if isAdmin(ctx) {
-		userlabel = " (Admin)"
-	}
 	fmt.Fprintf(w, `
 <!DOCTYPE html>
 <html>
@@ -111,7 +107,7 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 		</head>
 		<body class="pda">
 			<a href="/" class="title">PDA2<span class="go">GO</span></a></a>
-			<div class="email">%s%s</div>
+			<div class="email">%s</div>
 			<form name="searchform" method="get">
 				<input type="text" name="q" value="%s"> <input type="submit" value="Search"><br>
 			</form>
@@ -119,7 +115,6 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 			<hr>
 	`,
 		u.Email,
-		userlabel,
 		q)
 
 	renderCreateEntity(w, "Person", nil)
@@ -130,8 +125,9 @@ func renderPostamble(ctx context.Context, w io.Writer) {
 	if isAdmin(ctx) {
 		fmt.Fprintf(w, `
 			<br>
+			<div><a class="admin" href="%s">Console</a></div>
 			<div><a class="admin" href="/task/notify">/task/notify</a></div>
-		`)
+		`, consoleURL())
 	}
 
 	fmt.Fprintf(w, `

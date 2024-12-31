@@ -66,6 +66,10 @@ func projectID() string {
 	return os.Getenv(GOOGLE_CLOUD_PROJECT)
 }
 
+func consoleURL() string {
+	return fmt.Sprintf(`https://console.cloud.google.com/appengine?project=%s`, projectID())
+}
+
 func isAdmin(ctx context.Context) bool {
 	log.Printf("user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
 	return isDev() || user.IsAdmin(ctx)

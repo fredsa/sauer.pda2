@@ -1,9 +1,10 @@
 # https://cloud.google.com/appengine/docs/standard/reference/app-yaml?tab=go
 runtime: go123
 
-builtins:
 # https://cloud.google.com/appengine/docs/standard/reference/app-yaml?tab=go#runtime_and_app_elements
-- app_engine_apis: on
+app_engine_apis: on
+
+builtins:
 # Enable '/_ah/stats'
 - appstats: on
 # Redirect `/_ah/admin` to Cloud Console

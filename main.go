@@ -300,7 +300,7 @@ func touchAllHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 		}
 	}
 
-	fmt.Fprintf(w, "\n\nPreparing %d tasks:\n", len(people))
+	fmt.Fprintf(w, "\n\nAdding %d tasks:\n", len(people))
 	tasks := make([]*taskqueue.Task, len(people))
 	for i, person := range people {
 		tasks[i] = taskqueue.NewPOSTTask("/task/touch/Person", map[string][]string{
@@ -412,7 +412,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/task/touchall" {
+	if r.URL.Path == "/task/touch/all" {
 		err = touchAllHandler(w, r, ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed touch all handler: %v", err), http.StatusInternalServerError)

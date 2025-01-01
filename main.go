@@ -16,6 +16,7 @@ import (
 	"cloud.google.com/go/datastore"
 	"google.golang.org/appengine/v2"
 	"google.golang.org/appengine/v2/mail"
+	"google.golang.org/appengine/v2/taskqueue"
 	"google.golang.org/appengine/v2/user"
 )
 
@@ -223,6 +224,77 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	return nil
 }
 
+func touchPersonHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
+	// http://localhost:4200/task/touch/Person?key=Eg4KBlBlcnNvbhoEMTY4NA
+	key, err := datastore.DecodeKey(getValue(r, "key"))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to decode touch person key %q: %v", key, err), http.StatusBadRequest)
+	}
+
+	// Results include ancestor Person and children.
+	query := datastore.NewQuery("").Ancestor(key)
+	var entities []Entity
+	_, err = client.GetAll(ctx, query, &entities)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to fetch all to be touched entities: %v", err))
+	}
+	fmt.Fprintf(w, "Touching %d entities:\n", len(entities))
+	keys := make([]*datastore.Key, len(entities))
+	for i, child := range entities {
+		keys[i] = child.Key
+		fmt.Fprintf(w, "%4d: %v\n", i+1, child.Key)
+		before := fmt.Sprintf("%v", child)
+		child.fixAndSave(ctx, client)
+		after := fmt.Sprintf("%v", child)
+		if before == after {
+			fmt.Fprintf(w, "Same")
+		} else {
+			fmt.Fprintf(w, "Before: %v\n", before)
+			fmt.Fprintf(w, "After : %v\n", after)
+		}
+		fmt.Fprintf(w, strings.Repeat("\n", 10))
+	}
+	keys, err = client.PutMulti(ctx, keys, entities)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to put touched entities: %v", err))
+	}
+
+	fmt.Fprintf(w, "Done")
+	return nil
+}
+
+func touchAllHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
+	query := datastore.NewQuery("Person")
+	var people []Entity
+	_, err := client.GetAll(ctx, query, &people)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to fetch all Person entities: %v", err))
+	}
+
+	fmt.Fprintf(w, "Processing %d entities:\n", len(people))
+	tasks := make([]*taskqueue.Task, len(people))
+	for i, person := range people {
+		fmt.Fprintf(w, "%4d: %v %v\n", i+1, person.Key, person.displayName())
+		m := map[string][]string{
+			"key": {person.Key.Encode()},
+		}
+		tasks[i] = taskqueue.NewPOSTTask("/task/touch/Person", m)
+	}
+	if isDev() {
+		fmt.Fprintf(w, "\n\n*** Dev mode *** \nTasks that would be sent in production: %v\n", len(tasks))
+		for i, task := range tasks {
+			fmt.Fprintf(w, "%4d: %v %v\n", i+1, task.Path, string(task.Payload))
+		}
+	} else {
+		tasks, err = taskqueue.AddMulti(ctx, tasks, "")
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to add tasks: %v", err))
+		}
+	}
+
+	return nil
+}
+
 func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
 	q := getValue(r, "q")
 	action := getValue(r, "action")
@@ -310,6 +382,22 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return
+		}
+		return
+	}
+
+	if r.URL.Path == "/task/touchall" {
+		err = touchAllHandler(w, ctx, client)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed touch all handler: %v", err), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if r.URL.Path == "/task/touch/Person" {
+		err = touchPersonHandler(w, r, ctx, client)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed touch person handler: %v", err), http.StatusInternalServerError)
 		}
 		return
 	}

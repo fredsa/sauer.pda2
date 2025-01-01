@@ -304,7 +304,7 @@ func renderFormFields(w io.Writer, ctx context.Context, entity *Entity) {
 			html = fmt.Sprintf(`
 					<input type="hidden" name="key" value="%s">
 					<code>%s<br>%s<code>
-				`, entity.Key.Encode(), entity.Key.Encode(), value)
+				`, entity.Key.Encode(), value, entity.Key.Encode())
 		} else if forkind == "hidden" {
 			if !isAdmin(ctx) {
 				continue

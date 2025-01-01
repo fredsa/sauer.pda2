@@ -226,15 +226,8 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
 	q := getValue(r, "q")
 	action := getValue(r, "action")
-	// kind := getValue(r, "kind")
 	key := getValue(r, "key")
 
-	// fmt.Fprintf(w, "<div>q=%v</div>", q)
-	// fmt.Fprintf(w, "<div>action=%v</div>", action)
-	// fmt.Fprintf(w, "<div>kind=%v</div>", kind)
-
-	// TODO Fix multi word search.
-	// TODO Search results should all be Person kind.
 	if q != "" {
 		searchHandler(w, ctx, client, q)
 	} else {
@@ -254,7 +247,6 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 			renderForm(w, ctx, &entity)
 			renderPostamble(ctx, w)
 		case "view":
-			// TODO Here, or elsewhere, make this view the root entity.
 			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
 				return errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))

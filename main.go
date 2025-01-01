@@ -124,8 +124,7 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 	// - Any email address listed in the Google Cloud console under Email API Authorized Senders:
 	sender := fmt.Sprintf("pda@%s.appspotmail.com", projectID())
 
-	// emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
-	emailTo := []string{"Fred Sauer <fredsa@gmail.com>"}
+	emailTo := []string{"sauer@allen-sauer.com"}
 
 	// loc, err := time.LoadLocation("America/Los_Angeles")
 	// if err != nil {

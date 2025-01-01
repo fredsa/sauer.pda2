@@ -73,7 +73,6 @@ func consoleURL() string {
 }
 
 func isAdmin(ctx context.Context) bool {
-	log.Printf("user.IsAdmin(ctx)=%v", user.IsAdmin(ctx))
 	return isDev() || user.IsAdmin(ctx)
 }
 
@@ -223,6 +222,36 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	return nil
 }
 
+func addTask(w http.ResponseWriter, ctx context.Context, task *taskqueue.Task) error {
+	if isDev() {
+		fmt.Fprintf(w, "*** dev mode *** Not adding task: %s", task.Path)
+		return nil
+	} else {
+		task, err := taskqueue.Add(ctx, task, "")
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to add task %v: %v", task.Path, err))
+		}
+
+		fmt.Fprintf(w, "Added task: %s", task.Path)
+		return nil
+	}
+}
+
+func addTasks(w http.ResponseWriter, ctx context.Context, tasks []*taskqueue.Task) error {
+	if isDev() {
+		fmt.Fprintf(w, "*** dev mode *** Not adding %d tasks", len(tasks))
+		return nil
+	} else {
+		tasks, err := taskqueue.AddMulti(ctx, tasks, "")
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to add %v tasks: %v", len(tasks), err))
+		}
+
+		fmt.Fprintf(w, "Added %d tasks", len(tasks))
+		return nil
+	}
+}
+
 func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, key string) error {
 	dbkey, err := datastore.DecodeKey(key)
 	if err != nil {
@@ -261,56 +290,17 @@ func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datast
 	return nil
 }
 
-func addTask(w http.ResponseWriter, ctx context.Context, task *taskqueue.Task) error {
-	if isDev() {
-		fmt.Fprintf(w, "*** dev mode *** Not adding task: %s", task.Path)
-		return nil
-	} else {
-		task, err := taskqueue.Add(ctx, task, "")
-		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to add task %v: %v", task.Path, err))
-		}
-
-		fmt.Fprintf(w, "Added task: %s", task.Path)
-		return nil
-	}
-}
-
-func addTasks(w http.ResponseWriter, ctx context.Context, tasks []*taskqueue.Task) error {
-	if isDev() {
-		fmt.Fprintf(w, "*** dev mode *** Not adding %d tasks", len(tasks))
-		return nil
-	} else {
-		tasks, err := taskqueue.AddMulti(ctx, tasks, "")
-		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to add %v tasks: %v", len(tasks), err))
-		}
-
-		fmt.Fprintf(w, "Added %d tasks", len(tasks))
-		return nil
-	}
-}
-
-func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
-	// Expect one of:
-	// - `/task/fix/all`
-	// - `/task/fix/<continue_entity_key>`
-	// - `/task/fix/Person/<entity_key>`
-	segments := strings.Split(r.URL.Path, "/")[3:]
-	if segments[0] == "Person" {
-		return fixPersonHandler(w, ctx, client, segments[1])
-	}
-
+func fixAllHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, next string) error {
 	// https://cloud.google.com/appengine/docs/standard/quotas#Task_Queue
 	MAX_TASKS_PER_BATCH := 100
 
 	query := datastore.NewQuery("Person")
 	query = query.Limit(MAX_TASKS_PER_BATCH)
 
-	if segments[0] != "all" {
-		key, err := datastore.DecodeKey(segments[0])
+	if next != "" {
+		key, err := datastore.DecodeKey(next)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to decode person key %q: %v", segments[0], err))
+			return errors.New(fmt.Sprintf("Failed to decode person key %q: %v", next, err))
 		}
 		query = query.FilterField("__key__", ">", key)
 	}
@@ -323,7 +313,7 @@ func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, cli
 
 	if len(people) == MAX_TASKS_PER_BATCH {
 		next := people[MAX_TASKS_PER_BATCH-1].Key
-		path, err := url.JoinPath("/task/fix/", next.Encode())
+		path, err := url.JoinPath("/task/fix", "all", next.Encode())
 		if err != nil {
 			return errors.New(fmt.Sprintf("Failed to join path: %v", err))
 		}
@@ -338,7 +328,7 @@ func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, cli
 	fmt.Fprintf(w, "\n\nCreating %d tasks:\n", len(people))
 	tasks := make([]*taskqueue.Task, len(people))
 	for i, person := range people {
-		path, err := url.JoinPath("/task/fix/", "Person", person.Key.Encode())
+		path, err := url.JoinPath("/task/fix", "Person", person.Key.Encode())
 		if err != nil {
 			return errors.New(fmt.Sprintf("Failed to join person path: %v", err))
 		}
@@ -351,6 +341,27 @@ func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, cli
 	}
 
 	return nil
+}
+
+func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
+	// Expect one of:
+	// - `/task/fix/all/`         => []string{ "" "task" "fix" "all" "" }
+	// - `/task/fix/all/<key>`    => []string{ "" "task" "fix" "Person" "<key>" }
+	// - `/task/fix/Person/<key>` => []string{ "" "task" "fix" "Person" "<key>" }
+	segments := strings.Split(r.URL.Path, "/")
+
+	if len(segments) != 5 {
+		return errors.New(fmt.Sprintf("Invalid segments: %q", segments))
+	}
+
+	switch segments[3] {
+	case "Person":
+		return fixPersonHandler(w, ctx, client, segments[4])
+	case "all":
+		return fixAllHandler(w, ctx, client, segments[4])
+	default:
+		return errors.New(fmt.Sprintf("Unhandled path segment %s for path: %s", segments[1], r.URL.Path))
+	}
 }
 
 func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
@@ -444,7 +455,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(r.URL.Path, "/task/fix/") {
+	if strings.HasPrefix(r.URL.Path, "/task/fix") {
 		err = fixHandler(w, r, ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed fix handler: %v", err), http.StatusInternalServerError)

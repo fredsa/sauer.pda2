@@ -127,7 +127,7 @@ func renderPostamble(ctx context.Context, w io.Writer) {
 			<br>
 			<div><a class="admin" href="%s">Console</a></div>
 			<div><a class="admin" href="/task/notify">/task/notify</a></div>
-			<div><a class="admin" href="/task/fix/all">/task/fix/all</a></div>
+			<div><a class="admin" href="/task/fix/all/">/task/fix/all/</a></div>
 		`, consoleURL())
 	}
 

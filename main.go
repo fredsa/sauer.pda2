@@ -263,25 +263,53 @@ func touchPersonHandler(w http.ResponseWriter, r *http.Request, ctx context.Cont
 	return nil
 }
 
-func touchAllHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
+func touchAllHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
+	// https://cloud.google.com/appengine/docs/standard/quotas#Task_Queue
+	MAX_TASKS_PER_BATCH := 100
+
 	query := datastore.NewQuery("Person")
+	query = query.Limit(MAX_TASKS_PER_BATCH)
+
+	next := getValue(r, "next")
+	if next != "" {
+		key, err := datastore.DecodeKey(next)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to decode touch person key %q: %v", key, err), http.StatusBadRequest)
+		}
+		query = query.FilterField("__key__", ">", key)
+	}
+
 	var people []Entity
 	_, err := client.GetAll(ctx, query, &people)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to fetch all Person entities: %v", err))
 	}
 
-	fmt.Fprintf(w, "Processing %d entities:\n", len(people))
+	if len(people) == MAX_TASKS_PER_BATCH {
+		next := people[MAX_TASKS_PER_BATCH-1].Key
+		task := taskqueue.NewPOSTTask(r.URL.Path, map[string][]string{
+			"next": {next.Encode()},
+		})
+		if isDev() {
+			fmt.Fprintf(w, "\n\n*** Dev mode *** \nContinuation task that would be added in production: %v %v\n", task.Path, string(task.Payload))
+		} else {
+			task, err = taskqueue.Add(ctx, task, "")
+			if err != nil {
+				return errors.New(fmt.Sprintf("Failed to add continuation task with key %v: %v", next, err))
+			}
+		}
+	}
+
+	fmt.Fprintf(w, "\n\nProcessing %d entities:\n", len(people))
 	tasks := make([]*taskqueue.Task, len(people))
 	for i, person := range people {
 		fmt.Fprintf(w, "%4d: %v %v\n", i+1, person.Key, person.displayName())
-		m := map[string][]string{
+		tasks[i] = taskqueue.NewPOSTTask("/task/touch/Person", map[string][]string{
 			"key": {person.Key.Encode()},
-		}
-		tasks[i] = taskqueue.NewPOSTTask("/task/touch/Person", m)
+		})
 	}
 	if isDev() {
-		fmt.Fprintf(w, "\n\n*** Dev mode *** \nTasks that would be sent in production: %v\n", len(tasks))
+		fmt.Fprintf(w, "\n\n*** Dev mode *** \nProcessing tasks that would be added in production: %v\n", len(tasks))
 		for i, task := range tasks {
 			fmt.Fprintf(w, "%4d: %v %v\n", i+1, task.Path, string(task.Payload))
 		}
@@ -387,7 +415,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Path == "/task/touchall" {
-		err = touchAllHandler(w, ctx, client)
+		err = touchAllHandler(w, r, ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed touch all handler: %v", err), http.StatusInternalServerError)
 		}

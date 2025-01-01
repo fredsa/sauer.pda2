@@ -122,7 +122,6 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 	// - The Gmail or Google Workspace Account of the user who is currently signed in
 	// - Any email address of the form anything@[MY_PROJECT_ID].appspotmail.com or anything@[MY_PROJECT_NUMBER].appspotmail.com
 	// - Any email address listed in the Google Cloud console under Email API Authorized Senders:
-	//   https://console.cloud.google.com/appengine/settings/emailsenders?project=sauer-pda
 	sender := fmt.Sprintf("pda@%s.appspotmail.com", projectID())
 
 	// emailTo = []string{"Fred and/or Amber Sauer <sauer@allen-sauer.com>"}
@@ -290,8 +289,10 @@ func touchAllHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 		task := taskqueue.NewPOSTTask(r.URL.Path, map[string][]string{
 			"next": {next.Encode()},
 		})
+		fmt.Fprintf(w, "Adding continuation task: %v %v\n", task.Path, string(task.Payload))
+
 		if isDev() {
-			fmt.Fprintf(w, "\n\n*** Dev mode *** \nContinuation task that would be added in production: %v %v\n", task.Path, string(task.Payload))
+			fmt.Fprintf(w, "*** Skipping, dev mode ***")
 		} else {
 			task, err = taskqueue.Add(ctx, task, "")
 			if err != nil {
@@ -300,19 +301,17 @@ func touchAllHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 		}
 	}
 
-	fmt.Fprintf(w, "\n\nProcessing %d entities:\n", len(people))
+	fmt.Fprintf(w, "\n\nPreparing %d tasks:\n", len(people))
 	tasks := make([]*taskqueue.Task, len(people))
 	for i, person := range people {
-		fmt.Fprintf(w, "%4d: %v %v\n", i+1, person.Key, person.displayName())
 		tasks[i] = taskqueue.NewPOSTTask("/task/touch/Person", map[string][]string{
 			"key": {person.Key.Encode()},
 		})
+		fmt.Fprintf(w, "%4d: %v %v => %v %v\n", i+1, tasks[i].Path, string(tasks[i].Payload), person.Key, person.displayName())
 	}
+
 	if isDev() {
-		fmt.Fprintf(w, "\n\n*** Dev mode *** \nProcessing tasks that would be added in production: %v\n", len(tasks))
-		for i, task := range tasks {
-			fmt.Fprintf(w, "%4d: %v %v\n", i+1, task.Path, string(task.Payload))
-		}
+		fmt.Fprintf(w, "*** Skipping, dev mode ***")
 	} else {
 		tasks, err = taskqueue.AddMulti(ctx, tasks, "")
 		if err != nil {

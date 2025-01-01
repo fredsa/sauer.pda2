@@ -21,51 +21,39 @@ var categories = []string{
 }
 
 func renderPersonView(w io.Writer, ctx context.Context, client *datastore.Client, person *Entity) error {
-	name := html.EscapeString(person.displayName())
-	comments := html.EscapeString(person.Comments)
-	fmt.Fprintf(w, `
-		<hr>
-		<a href="%s" class="edit-link">Edit</a>
-		<span class="thing">%s</span> <span class="tag">(%s) [%s]</span><br>
-		<div class="comments">%s</div>
-		<div class="indent">
-	`, person.editURL(),
-		name,
-		person.Category,
-		person.enabledText(),
-		comments)
-
-	var contacts []Entity
-	query := datastore.NewQuery("Contact").Ancestor(person.Key)
-	_, err := client.GetAll(ctx, query, &contacts)
+	var children []Entity
+	query := datastore.NewQuery("").Ancestor(person.Key)
+	// query = query.FilterField("__key__", ">", person.Key)
+	_, err := client.GetAll(ctx, query, &children)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to get all contacts: %v", err))
+		return errors.New(fmt.Sprintf("Failed to get all entities: %v", err))
 	}
 
-	for _, contact := range contacts {
-		renderContactView(w, &contact)
-	}
-
-	var addresses []Entity
-	query = datastore.NewQuery("Address").Ancestor(person.Key)
-	_, err = client.GetAll(ctx, query, &addresses)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to get all addresses: %v", err))
-	}
-
-	for _, address := range addresses {
-		renderAddressView(w, &address)
-	}
-
-	var events []Entity
-	query = datastore.NewQuery("Calendar").Ancestor(person.Key)
-	_, err = client.GetAll(ctx, query, &events)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to get all calendar events: %v", err))
-	}
-
-	for _, event := range events {
-		renderCalendarView(w, &event)
+	for _, child := range children {
+		switch child.Key.Kind {
+		case "Person":
+			name := html.EscapeString(person.displayName())
+			comments := html.EscapeString(person.Comments)
+			fmt.Fprintf(w, `
+				<hr>
+				<a href="%s" class="edit-link">Edit</a>
+				<span class="thing">%s</span> <span class="tag">(%s) [%s]</span><br>
+				<div class="comments">%s</div>
+				<div class="indent">
+			`, person.editURL(),
+				name,
+				person.Category,
+				person.enabledText(),
+				comments)
+		case "Contact":
+			renderContactView(w, &child)
+		case "Address":
+			renderAddressView(w, &child)
+		case "Calendar":
+			renderCalendarView(w, &child)
+		default:
+			return errors.New(fmt.Sprintf("Unknown kind: %s", child.Key.Kind))
+		}
 	}
 
 	fmt.Fprintf(w, `

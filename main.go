@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -81,21 +80,6 @@ func enabledText(enabled bool) string {
 		return "enabled"
 	} else {
 		return "DISABLED"
-	}
-}
-
-func renderView(w io.Writer, ctx context.Context, client *datastore.Client, entity *Entity) error {
-	switch entity.Key.Kind {
-	case "Person":
-		return renderPersonView(w, ctx, client, entity)
-	case "Contact":
-		return renderContactView(w, entity)
-	case "Address":
-		return renderAddressView(w, entity)
-	case "Calendar":
-		return renderCalendarView(w, entity)
-	default:
-		return errors.New(fmt.Sprintf("Unknown kind: %s", entity.Key.Kind))
 	}
 }
 
@@ -215,7 +199,7 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	renderPremable(w, ctx, q)
 	fmt.Fprintf(w, "<div>%d result(s)</div>", len(entities))
 	for _, entity := range entities {
-		renderView(w, ctx, client, &entity)
+		renderPersonView(w, ctx, client, &entity)
 	}
 	renderPostamble(ctx, w)
 

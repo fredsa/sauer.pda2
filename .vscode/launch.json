@@ -11,6 +11,9 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}",
+            "env": {
+                "GOOGLE_CLOUD_PROJECT": "sauer-pda-dev"
+            }
         }
     ]
 }

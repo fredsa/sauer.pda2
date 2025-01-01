@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"slices"
@@ -222,21 +223,20 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	return nil
 }
 
-func touchPersonHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
-	// http://localhost:4200/task/touch/Person?key=Eg4KBlBlcnNvbhoEMTY4NA
-	key, err := datastore.DecodeKey(getValue(r, "key"))
+func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, key string) error {
+	dbkey, err := datastore.DecodeKey(key)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to decode touch person key %q: %v", key, err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed to decode person key %q: %v", key, err), http.StatusBadRequest)
 	}
 
-	// Results include ancestor Person and children.
-	query := datastore.NewQuery("").Ancestor(key)
+	// Results include ancestor Person and descendents.
+	query := datastore.NewQuery("").Ancestor(dbkey)
 	var entities []Entity
 	_, err = client.GetAll(ctx, query, &entities)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to fetch all to be touched entities: %v", err))
+		return errors.New(fmt.Sprintf("Failed to fetch all to be fixed entities: %v", err))
 	}
-	fmt.Fprintf(w, "Touching %d entities:\n", len(entities))
+	fmt.Fprintf(w, "Fixing %d entities:\n", len(entities))
 	keys := make([]*datastore.Key, len(entities))
 	for i, child := range entities {
 		keys[i] = child.Key
@@ -250,29 +250,67 @@ func touchPersonHandler(w http.ResponseWriter, r *http.Request, ctx context.Cont
 			fmt.Fprintf(w, "Before: %v\n", before)
 			fmt.Fprintf(w, "After : %v\n", after)
 		}
-		fmt.Fprintf(w, strings.Repeat("\n", 10))
+		fmt.Fprint(w, strings.Repeat("\n", 10))
 	}
 	keys, err = client.PutMulti(ctx, keys, entities)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to put touched entities: %v", err))
+		return errors.New(fmt.Sprintf("Failed to put %d fixed entities: %v", len(entities), err))
 	}
 
 	fmt.Fprintf(w, "Done")
 	return nil
 }
 
-func touchAllHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
+func addTask(w http.ResponseWriter, ctx context.Context, task *taskqueue.Task) error {
+	if isDev() {
+		fmt.Fprintf(w, "*** dev mode *** Not adding task: %s", task.Path)
+		return nil
+	} else {
+		task, err := taskqueue.Add(ctx, task, "")
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to add task %v: %v", task.Path, err))
+		}
+
+		fmt.Fprintf(w, "Added task: %s", task.Path)
+		return nil
+	}
+}
+
+func addTasks(w http.ResponseWriter, ctx context.Context, tasks []*taskqueue.Task) error {
+	if isDev() {
+		fmt.Fprintf(w, "*** dev mode *** Not adding %d tasks", len(tasks))
+		return nil
+	} else {
+		tasks, err := taskqueue.AddMulti(ctx, tasks, "")
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to add %v tasks: %v", len(tasks), err))
+		}
+
+		fmt.Fprintf(w, "Added %d tasks", len(tasks))
+		return nil
+	}
+}
+
+func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
+	// Expect one of:
+	// - `/task/fix/all`
+	// - `/task/fix/<continue_entity_key>`
+	// - `/task/fix/Person/<entity_key>`
+	segments := strings.Split(r.URL.Path, "/")[3:]
+	if segments[0] == "Person" {
+		return fixPersonHandler(w, ctx, client, segments[1])
+	}
+
 	// https://cloud.google.com/appengine/docs/standard/quotas#Task_Queue
 	MAX_TASKS_PER_BATCH := 100
 
 	query := datastore.NewQuery("Person")
 	query = query.Limit(MAX_TASKS_PER_BATCH)
 
-	next := getValue(r, "next")
-	if next != "" {
-		key, err := datastore.DecodeKey(next)
+	if segments[0] != "all" {
+		key, err := datastore.DecodeKey(segments[0])
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to decode touch person key %q: %v", key, err), http.StatusBadRequest)
+			return errors.New(fmt.Sprintf("Failed to decode person key %q: %v", segments[0], err))
 		}
 		query = query.FilterField("__key__", ">", key)
 	}
@@ -280,42 +318,36 @@ func touchAllHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 	var people []Entity
 	_, err := client.GetAll(ctx, query, &people)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to fetch all Person entities: %v", err))
+		return errors.New(fmt.Sprintf("Failed to fetch person entities: %v", err))
 	}
 
 	if len(people) == MAX_TASKS_PER_BATCH {
 		next := people[MAX_TASKS_PER_BATCH-1].Key
-		task := taskqueue.NewPOSTTask(r.URL.Path, map[string][]string{
-			"next": {next.Encode()},
-		})
-		fmt.Fprintf(w, "Adding continuation task: %v %v\n", task.Path, string(task.Payload))
-
-		if isDev() {
-			fmt.Fprintf(w, "*** Skipping, dev mode ***")
-		} else {
-			task, err = taskqueue.Add(ctx, task, "")
-			if err != nil {
-				return errors.New(fmt.Sprintf("Failed to add continuation task with key %v: %v", next, err))
-			}
+		path, err := url.JoinPath("/task/fix/", next.Encode())
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to join path: %v", err))
+		}
+		fmt.Fprintf(w, "Adding continuation task: %v\n", path)
+		task := taskqueue.NewPOSTTask(path, nil)
+		err = addTask(w, ctx, task)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to add continuation task with key %v: %v", next, err))
 		}
 	}
 
-	fmt.Fprintf(w, "\n\nAdding %d tasks:\n", len(people))
+	fmt.Fprintf(w, "\n\nCreating %d tasks:\n", len(people))
 	tasks := make([]*taskqueue.Task, len(people))
 	for i, person := range people {
-		tasks[i] = taskqueue.NewPOSTTask("/task/touch/Person", map[string][]string{
-			"key": {person.Key.Encode()},
-		})
-		fmt.Fprintf(w, "%4d: %v %v => %v %v\n", i+1, tasks[i].Path, string(tasks[i].Payload), person.Key, person.displayName())
-	}
-
-	if isDev() {
-		fmt.Fprintf(w, "*** Skipping, dev mode ***")
-	} else {
-		tasks, err = taskqueue.AddMulti(ctx, tasks, "")
+		path, err := url.JoinPath("/task/fix/", "Person", person.Key.Encode())
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to add tasks: %v", err))
+			return errors.New(fmt.Sprintf("Failed to join person path: %v", err))
 		}
+		tasks[i] = taskqueue.NewPOSTTask(path, nil)
+		fmt.Fprintf(w, "%4d: %v => %v  %v\n", i+1, tasks[i].Path, person.Key, person.displayName())
+	}
+	err = addTasks(w, ctx, tasks)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to add tasks: %v", err))
 	}
 
 	return nil
@@ -412,18 +444,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path == "/task/touch/all" {
-		err = touchAllHandler(w, r, ctx, client)
+	if strings.HasPrefix(r.URL.Path, "/task/fix/") {
+		err = fixHandler(w, r, ctx, client)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed touch all handler: %v", err), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	if r.URL.Path == "/task/touch/Person" {
-		err = touchPersonHandler(w, r, ctx, client)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed touch person handler: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Failed fix handler: %v", err), http.StatusInternalServerError)
 		}
 		return
 	}

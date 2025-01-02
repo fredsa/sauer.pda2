@@ -168,7 +168,7 @@ func (entity *Entity) words() []string {
 			continue
 		} else if field.Type.Kind() == reflect.Bool {
 			if value.Bool() {
-				word := field.Name
+				word := fmt.Sprintf("%s=%v", field.Name, value.Bool())
 				// log.Printf("BOOL: %s == %v", field.Name, value)
 				words = append(words, word)
 			}

@@ -210,6 +210,14 @@ func (entity *Entity) fix() {
 	entity.Words = entity.words()
 }
 
+func (entity *Entity) save(ctx context.Context, client *datastore.Client) (*datastore.Key, error) {
+	key, err := client.Put(ctx, entity.Key, entity)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to put entity: %v", err))
+	}
+	return key, nil
+}
+
 func (entity *Entity) enabledClass() string {
 	if entity.Enabled {
 		return ""

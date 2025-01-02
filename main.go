@@ -304,21 +304,29 @@ func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datast
 		http.Error(w, fmt.Sprintf("Failed to decode person key %q: %v", key, err), http.StatusBadRequest)
 	}
 
-	// Results include ancestor Person and descendents.
+	// Results include ancestor Person and all descendents.
 	query := datastore.NewQuery("").Ancestor(dbkey)
 	var entities []Entity
 	_, err = client.GetAll(ctx, query, &entities)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to fetch all to be fixed entities: %v", err))
 	}
+
 	fmt.Fprintf(w, "Fixing %d entities:\n", len(entities))
 	keys := make([]*datastore.Key, len(entities))
-	for i, child := range entities {
-		keys[i] = child.Key
-		fmt.Fprintf(w, "%4d: %v\n", i+1, child.Key)
-		before := fmt.Sprintf("%v", child)
-		child.fix()
-		after := fmt.Sprintf("%v", child)
+	for i, e := range entities {
+		keys[i] = e.Key
+		fmt.Fprintf(w, "%4d: %v\n", i+1, e.Key)
+		before := fmt.Sprintf("%v", e)
+		e.fix()
+
+		dbkey, err := e.save(ctx, client)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Unable to save entity: %v", err))
+		}
+		e.Key = dbkey
+
+		after := fmt.Sprintf("%v", e)
 		if before == after {
 			fmt.Fprintf(w, "Same")
 		} else {
@@ -448,16 +456,16 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 			}
 
 			if r.Method == "POST" {
-				key, err := client.Put(ctx, entity.Key, entity)
+				dbkey, err := entity.save(ctx, client)
 				if err != nil {
-					return errors.New(fmt.Sprintf("Failed to put entity: %v", err))
+					return errors.New(fmt.Sprintf("Unable to save entity: %v", err))
 				}
-				entity.Key = key
+				entity.Key = dbkey
 
-				if key.Parent != nil {
-					key = key.Parent
+				if dbkey.Parent != nil {
+					dbkey = dbkey.Parent
 				}
-				http.Redirect(w, r, fmt.Sprintf("/?action=view&key=%s", key.Encode()), http.StatusFound)
+				http.Redirect(w, r, fmt.Sprintf("/?action=view&key=%s", dbkey.Encode()), http.StatusFound)
 				return nil
 			} else {
 				renderPremable(w, ctx, q)

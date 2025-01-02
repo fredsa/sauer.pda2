@@ -101,14 +101,6 @@ var choices = map[string][]string{
 	},
 }
 
-func (entity *Entity) maybeKey() string {
-	if entity.Key == nil {
-		return ""
-	} else {
-		return entity.Key.Encode()
-	}
-}
-
 func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Client) (entity *Entity, err error) {
 	key := getValue(r, "key")
 	dbkey, err := datastore.DecodeKey(key)

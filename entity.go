@@ -346,9 +346,11 @@ func renderFormFields(w io.Writer, ctx context.Context, entity *Entity) {
 		} else if field.Tag.Get("form") == "select" {
 			values := choices[field.Name]
 			html = fmt.Sprintf(`<select name="%s" size="%d">`, field.Name, len(values))
-			for _, v := range values {
+			for i, v := range values {
 				selected := ""
 				if value.String() == v {
+					selected = "selected"
+				} else if value.String() == "" && i == 0 {
 					selected = "selected"
 				}
 				html += fmt.Sprintf(`<option %s value="%s">%s</option>`, selected, v, v)

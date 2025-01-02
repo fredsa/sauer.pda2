@@ -22,8 +22,11 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 		<meta name="viewport" content="width=device-width,initial-scale=1.0">
 		<title>PDA2GO</title>
 		<style type="text/css">
-			input[type=text],option,textarea {
+			input[type=text],textarea,option:not(:checked) {
 				background-color: #eff9fb;
+			}
+			option:checked {
+				background-color: #86c7fe;
 			}
 			input[type=text],textarea {
 				width: 30em;

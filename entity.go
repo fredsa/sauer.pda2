@@ -59,15 +59,23 @@ type Entity struct {
 	Words    []string `forkind:"hidden" datastore:"words,omitempty" json:"-"`
 }
 
+// TODO Remove after migration.
+var oldCategories = map[string]string{
+	"Hotel/Restaurant/Entertainment": "Hospitality",
+	"Services by Individuals":        "Freelance",
+	"Companies, Institutions, etc.":  "Company",
+	"Business Relations":             "Professional",
+}
+
 var choices = map[string][]string{
 	"Category": {
 		"(Unspecified)",
 		"Relatives",
 		"Personal",
-		"Hotel/Restaurant/Entertainment",
-		"Services by Individuals",
-		"Companies, Institutions, etc.",
-		"Business Relations",
+		"Hospitality",  //"Hotel/Restaurant/Entertainment",
+		"Freelance",    //"Services by Individuals",
+		"Company",      //"Companies, Institutions, etc.",
+		"Professional", //"Business Relations",
 	},
 	"AddressType": {
 		"(Unspecified)",
@@ -200,6 +208,13 @@ func (entity *Entity) words() []string {
 }
 
 func (entity *Entity) fix() {
+	cat := oldCategories[entity.Category]
+	if cat != "" {
+		log.Printf("Fixing category: %q -> %q", entity.Category, cat)
+		entity.Category = cat
+	}
+
+	// Lastly.
 	entity.Words = entity.words()
 }
 

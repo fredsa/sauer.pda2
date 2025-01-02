@@ -313,7 +313,7 @@ func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datast
 		keys[i] = child.Key
 		fmt.Fprintf(w, "%4d: %v\n", i+1, child.Key)
 		before := fmt.Sprintf("%v", child)
-		child.fixAndSave(ctx, client)
+		child.fix()
 		after := fmt.Sprintf("%v", child)
 		if before == after {
 			fmt.Fprintf(w, "Same")
@@ -444,9 +444,14 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 			}
 
 			if r.Method == "POST" {
-				key := entity.Key
-				if entity.Key.Parent != nil {
-					key = entity.Key.Parent
+				key, err := client.Put(ctx, entity.Key, entity)
+				if err != nil {
+					return errors.New(fmt.Sprintf("Failed to put entity: %v", err))
+				}
+				entity.Key = key
+
+				if key.Parent != nil {
+					key = key.Parent
 				}
 				http.Redirect(w, r, fmt.Sprintf("/?action=view&key=%s", key.Encode()), http.StatusFound)
 				return nil

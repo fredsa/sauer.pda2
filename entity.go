@@ -138,11 +138,8 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 				value.SetString(v)
 			}
 		}
-		err := e.fixAndSave(ctx, client)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to save %v: %v", e, err))
-		}
 
+		e.fix()
 		return e, nil
 	} else {
 		var e Entity
@@ -150,6 +147,8 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey, err))
 		}
+
+		e.fix()
 		return &e, nil
 	}
 }
@@ -200,15 +199,8 @@ func (entity *Entity) words() []string {
 	return words
 }
 
-func (entity *Entity) fixAndSave(ctx context.Context, client *datastore.Client) error {
+func (entity *Entity) fix() {
 	entity.Words = entity.words()
-	key, err := client.Put(ctx, entity.Key, entity)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to put entity: %v", err))
-	}
-	entity.Key = key
-
-	return nil
 }
 
 func (entity *Entity) enabledClass() string {

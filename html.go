@@ -96,8 +96,14 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 			.disabled, .disabled * {
 				color: #ccc !important;
 			}
-			a.admin, a:visited.admin {
-				color: #f44;
+			.admin a, .admin a:visited {
+				color: #844;
+			}
+			.danger {
+				margin-top: 1em;
+			}
+			.danger a, .danger a:visited {
+				color: #f00;
 			}
 			.version {
 				color: #800;
@@ -125,10 +131,10 @@ func renderPostamble(ctx context.Context, w io.Writer) {
 	if isAdmin(ctx) {
 		fmt.Fprintf(w, `
 			<br>
-			<div><a class="admin" href="%s" target="_blank" >Console</a></div>
-			<div><a class="admin" href="/mailmerge">/mailmerge</a></div>
-			<div><a class="admin" href="/task/notify">/task/notify</a></div>
-			<div><a class="admin" href="/task/fix/all/" onclick="return confirm('Are you sure?')">/task/fix/all/</a></div>
+			<div class="admin"><a  href="%s" target="_blank" >Console</a></div>
+			<div class="admin"><a  href="/mailmerge">/mailmerge</a></div>
+			<div class="admin"><a  href="/task/notify">/task/notify</a></div>
+			<div class="admin danger"><a href="/task/fix/all/" onclick="return confirm('Are you sure?')">/task/fix/all/</a></div>
 		`, consoleURL())
 	}
 

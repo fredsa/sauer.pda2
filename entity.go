@@ -300,6 +300,25 @@ func renderCreateEntity(w io.Writer, kind string, parentKey *datastore.Key) {
 	fmt.Fprintf(w, `<a href="?action=create&key=%s">[+%s]</a>&nbsp;`, childkey.Encode(), kind)
 }
 
+func keyLiteral(key *datastore.Key) string {
+	t := ""
+	for key != nil {
+		if t != "" {
+			t = ", " + t
+		}
+		if key.Incomplete() {
+			t = "<incomplete>" + t
+		}
+		if key.Name != "" {
+			t = fmt.Sprintf("%s, '%s'", key.Kind, key.Name) + t
+		} else {
+			t = fmt.Sprintf("%s, %d", key.Kind, key.ID) + t
+		}
+		key = key.Parent
+	}
+	return fmt.Sprintf("Key(%s)", t)
+}
+
 func renderFormFields(w io.Writer, ctx context.Context, entity *Entity) {
 	t := reflect.TypeOf(entity).Elem()
 	v := reflect.ValueOf(entity).Elem()
@@ -321,8 +340,8 @@ func renderFormFields(w io.Writer, ctx context.Context, entity *Entity) {
 			color = "gray"
 			html = fmt.Sprintf(`
 					<input type="hidden" name="key" value="%s">
-					<code>%s<br>%s<code>
-				`, entity.Key.Encode(), value, entity.Key.Encode())
+					<code>%s<br>%s<br>%s<code>
+				`, entity.Key.Encode(), value, keyLiteral(entity.Key), entity.Key.Encode())
 		} else if forkind == "hidden" {
 			if !isAdmin(ctx) {
 				continue

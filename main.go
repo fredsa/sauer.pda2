@@ -71,6 +71,10 @@ func consoleURL() string {
 	return fmt.Sprintf(`https://console.cloud.google.com/appengine?project=%s`, projectID())
 }
 
+func datastoreURL() string {
+	return fmt.Sprintf(`https://console.cloud.google.com/datastore/databases/-default-?project=%s`, projectID())
+}
+
 func isAdmin(ctx context.Context) bool {
 	return isDev() || user.IsAdmin(ctx)
 }

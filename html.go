@@ -134,11 +134,14 @@ func renderPostamble(ctx context.Context, w io.Writer) {
 	if isAdmin(ctx) {
 		fmt.Fprintf(w, `
 			<br>
-			<div class="admin"><a href="%s" target="_blank" >Console</a></div>
+			<div class="admin"><a href="%s" target="_blank">Console</a>, <a href="%s" target="_blank">Datastore</a></div>
 			<div class="admin"><a href="/mailmerge">mailmerge.csv</a></div>
 			<div class="admin"><a href="/task/notify">/task/notify</a></div>
 			<div class="admin danger"><a href="/task/fix/all/" onclick="return prompt('Enter CONFIRM to continue:') == 'CONFIRM'">/task/fix/all/</a></div>
-		`, consoleURL())
+		`,
+			consoleURL(),
+			datastoreURL(),
+		)
 	}
 
 	fmt.Fprintf(w, `

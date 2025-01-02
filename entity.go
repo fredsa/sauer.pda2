@@ -16,6 +16,49 @@ import (
 	"cloud.google.com/go/datastore"
 )
 
+var kinds = []string{"Person", "Address", "Contact", "Calendar"}
+
+// https://cloud.google.com/go/docs/reference/cloud.google.com/go/datastore/latest
+type Entity struct {
+	Key *datastore.Key `forkind:"hidden" datastore:"__key__"`
+
+	// Person kind.
+	Category    string `forkind:"Person" datastore:"category,omitempty,noindex" form:"select" json:",omitempty"`
+	SendCard    bool   `forkind:"Person" datastore:"send_card,omitempty,noindex" default:"false"` // Default false json:",omitempty".
+	Title       string `forkind:"Person" datastore:"title,omitempty,noindex" json:",omitempty"`
+	MailingName string `forkind:"Person" datastore:"mailing_name,omitempty,noindex" json:",omitempty"`
+	FirstName   string `forkind:"Person" datastore:"first_name,omitempty,noindex" json:",omitempty"`
+	LastName    string `forkind:"Person" datastore:"last_name,omitempty,noindex" json:",omitempty"`
+	CompanyName string `forkind:"Person" datastore:"company_name,omitempty,noindex" json:",omitempty"`
+
+	// Address kind.
+	AddressType   string `forkind:"Address" datastore:"address_type,omitempty,noindex" form:"select" json:",omitempty"`
+	AddressLine1  string `forkind:"Address" datastore:"address_line1,omitempty,noindex" json:",omitempty"`
+	AddressLine2  string `forkind:"Address" datastore:"address_line2,omitempty,noindex" json:",omitempty"`
+	City          string `forkind:"Address" datastore:"city,omitempty,noindex" json:",omitempty"`
+	StateProvince string `forkind:"Address" datastore:"state_province,omitempty,noindex" json:",omitempty"`
+	PostalCode    string `forkind:"Address" datastore:"postal_code,omitempty,noindex" json:",omitempty"`
+	Country       string `forkind:"Address" datastore:"country,omitempty,noindex" json:",omitempty"`
+
+	// TODO: delete after purging from datastore.
+	Directions string `forkind:"hidden" datastore:"directions,omitempty,noindex" form:"textarea" json:",omitempty"`
+
+	// Contact kind.
+	ContactMethod string `forkind:"Contact" datastore:"contact_method,omitempty,noindex" form:"select" json:",omitempty"`
+	ContactType   string `forkind:"Contact" datastore:"contact_type,omitempty,noindex" form:"select" json:",omitempty"`
+	ContactText   string `forkind:"Contact" datastore:"contact_text,omitempty,noindex" json:",omitempty"`
+
+	// Calendar kind.
+	FirstOccurrence time.Time `forkind:"Calendar" datastore:"first_occurrence,omitempty,noindex" json:",omitempty"`
+	Frequency       string    `forkind:"Calendar" datastore:"frequency,omitempty,noindex" form:"select" json:",omitempty"`
+	Occasion        string    `forkind:"Calendar" datastore:"occasion,omitempty,noindex" json:",omitempty"`
+
+	// Common fields.
+	Comments string   `forkind:"" datastore:"comments,omitempty,noindex" form:"textarea" json:",omitempty"`
+	Enabled  bool     `forkind:"" datastore:"enabled" default:"true"`         // Required. Indexed. Default true.
+	Words    []string `forkind:"hidden" datastore:"words,omitempty" json:"-"` // Indexed.
+}
+
 var choices = map[string][]string{
 	"Category": {
 		"(Unspecified)",
@@ -48,49 +91,6 @@ var choices = map[string][]string{
 	"Frequency": {
 		"Annual",
 	},
-}
-
-var kinds = []string{"Person", "Address", "Contact", "Calendar"}
-
-// https://cloud.google.com/go/docs/reference/cloud.google.com/go/datastore/latest
-type Entity struct {
-	Key *datastore.Key `forkind:"hidden" datastore:"__key__"`
-
-	// Person kind.
-	Category    string `forkind:"Person" datastore:"category,omitempty,noindex" form:"select"`
-	SendCard    bool   `forkind:"Person" datastore:"send_card,omitempty,noindex" default:"false"` // Default false.
-	Title       string `forkind:"Person" datastore:"title,omitempty,noindex"`
-	MailingName string `forkind:"Person" datastore:"mailing_name,omitempty,noindex"`
-	FirstName   string `forkind:"Person" datastore:"first_name,omitempty,noindex"`
-	LastName    string `forkind:"Person" datastore:"last_name,omitempty,noindex"`
-	CompanyName string `forkind:"Person" datastore:"company_name,omitempty,noindex"`
-
-	// Address kind.
-	AddressType   string `forkind:"Address" datastore:"address_type,omitempty,noindex" form:"select"`
-	AddressLine1  string `forkind:"Address" datastore:"address_line1,omitempty,noindex"`
-	AddressLine2  string `forkind:"Address" datastore:"address_line2,omitempty,noindex"`
-	City          string `forkind:"Address" datastore:"city,omitempty,noindex"`
-	StateProvince string `forkind:"Address" datastore:"state_province,omitempty,noindex"`
-	PostalCode    string `forkind:"Address" datastore:"postal_code,omitempty,noindex"`
-	Country       string `forkind:"Address" datastore:"country,omitempty,noindex"`
-
-	// TODO: delete after purging from datastore.
-	Directions string `forkind:"hidden" datastore:"directions,omitempty,noindex" form:"textarea"`
-
-	// Contact kind.
-	ContactMethod string `forkind:"Contact" datastore:"contact_method,omitempty,noindex" form:"select"`
-	ContactType   string `forkind:"Contact" datastore:"contact_type,omitempty,noindex" form:"select"`
-	ContactText   string `forkind:"Contact" datastore:"contact_text,omitempty,noindex"`
-
-	// Calendar kind.
-	FirstOccurrence time.Time `forkind:"Calendar" datastore:"first_occurrence,omitempty,noindex"`
-	Frequency       string    `forkind:"Calendar" datastore:"frequency,omitempty,noindex" form:"select"`
-	Occasion        string    `forkind:"Calendar" datastore:"occasion,omitempty,noindex"`
-
-	// Common fields.
-	Comments string   `forkind:"" datastore:"comments,omitempty,noindex" form:"textarea"`
-	Enabled  bool     `forkind:"" datastore:"enabled" default:"true"` // Required. Indexed. Default true.
-	Words    []string `forkind:"hidden" datastore:"words,omitempty"`  // Indexed.
 }
 
 func (entity *Entity) maybeKey() string {
@@ -211,8 +211,28 @@ func (entity *Entity) fixAndSave(ctx context.Context, client *datastore.Client) 
 	return nil
 }
 
+func (entity *Entity) enabledClass() string {
+	if entity.Enabled {
+		return ""
+	} else {
+		return "disabled"
+	}
+}
+
 func (entity *Entity) enabledText() string {
-	return enabledText(entity.Enabled)
+	if entity.Enabled {
+		return "Enabled"
+	} else {
+		return "DISABLED"
+	}
+}
+
+func (entity *Entity) sendCardText() string {
+	if entity.SendCard {
+		return "[SendCard]"
+	} else {
+		return ""
+	}
 }
 
 func (entity *Entity) actionURL(action string) string {
@@ -249,7 +269,7 @@ func (person *Entity) displayName() string {
 	if person.LastName != "" {
 		t += person.LastName
 	}
-	return t
+	return strings.TrimSpace(t)
 }
 
 func renderForm(w io.Writer, ctx context.Context, entity *Entity) {

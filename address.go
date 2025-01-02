@@ -23,10 +23,6 @@ func renderAddressView(w io.Writer, address *Entity) error {
 	qlocation := strings.ReplaceAll(address.snippet(), " / ", " ")
 	mapsURL := "https://maps.google.com/?q=" + qlocation
 
-	clazz := ""
-	if !address.Enabled {
-		clazz = "disabled"
-	}
 	fmt.Fprintf(w, `
 		<div class="%s">
 			<a href="%s" class="edit-link">Edit</a>
@@ -38,7 +34,7 @@ func renderAddressView(w io.Writer, address *Entity) error {
 			<div class="comments">%s</div>
 		</div>
 	`,
-		clazz,
+		address.enabledClass(),
 		address.editURL(),
 
 		address.Key.Kind,

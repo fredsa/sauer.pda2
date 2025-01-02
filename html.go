@@ -126,6 +126,7 @@ func renderPostamble(ctx context.Context, w io.Writer) {
 		fmt.Fprintf(w, `
 			<br>
 			<div><a class="admin" href="%s" target="_blank" >Console</a></div>
+			<div><a class="admin" href="/mailmerge">/mailmerge</a></div>
 			<div><a class="admin" href="/task/notify">/task/notify</a></div>
 			<div><a class="admin" href="/task/fix/all/" onclick="return confirm('Are you sure?')">/task/fix/all/</a></div>
 		`, consoleURL())

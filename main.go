@@ -75,14 +75,6 @@ func isAdmin(ctx context.Context) bool {
 	return isDev() || user.IsAdmin(ctx)
 }
 
-func enabledText(enabled bool) string {
-	if enabled {
-		return "enabled"
-	} else {
-		return "DISABLED"
-	}
-}
-
 func getValue(r *http.Request, name string) string {
 	value := r.URL.Query().Get(name)
 	if value == "" {
@@ -99,6 +91,72 @@ func intersection(a, b []*datastore.Key) []*datastore.Key {
 		}
 	}
 	return result
+}
+
+func mailmergeHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
+	lineFormat := "%q,%q,%q,%q,%q\n"
+	fmt.Fprintf(w, lineFormat, "Name", "AddressLine1", "AddressLine2", "AddressLine3", "AddressLine4")
+
+	query := datastore.NewQuery("Person")
+	query = query.FilterField("send_card", "=", true)
+	query = query.FilterField("enabled", "=", true)
+	var people []Entity
+	_, err := client.GetAll(ctx, query, &people)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Failed to fetch people: %v", err))
+	}
+
+	for _, person := range people {
+		name := person.MailingName
+		if name == "" {
+			name = person.displayName()
+		}
+
+		aquery := datastore.NewQuery("Address").Ancestor(person.Key).Limit(2)
+		aquery = aquery.FilterField("__key__", ">", person.Key)
+		aquery = aquery.FilterField("enabled", "=", true)
+		var addresses []Entity
+		_, err = client.GetAll(ctx, aquery, &addresses)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed to fetch addresses: %v", err))
+		}
+
+		if len(addresses) == 0 {
+			fmt.Fprintf(w, lineFormat, name,
+				"___________",
+				"___________",
+				"___________",
+				"___________",
+			)
+		}
+
+		for _, a := range addresses {
+			// United States
+			line3 := a.City + ", " + a.StateProvince + " " + a.PostalCode
+			switch a.Country {
+			case "The Netherlands":
+				line3 = a.PostalCode + "  " + a.City
+				if a.StateProvince != "" {
+					line3 = line3 + ", " + a.StateProvince
+				}
+			case "Portugal":
+				line3 = a.PostalCode + "  " + a.City
+				if a.StateProvince != "" {
+					line3 = line3 + ", " + a.StateProvince
+				}
+			case "Canada":
+				line3 = a.City + " " + a.StateProvince + "  " + a.PostalCode
+			}
+			fmt.Fprintf(w, lineFormat, name,
+				a.AddressLine1,
+				a.AddressLine2,
+				strings.TrimSpace(line3),
+				a.Country,
+			)
+		}
+	}
+
+	return nil
 }
 
 func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
@@ -429,6 +487,15 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer client.Close()
 
+	if r.URL.Path == "/mailmerge" {
+		err = mailmergeHandler(w, ctx, client)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to json export %q: %v", r.URL.Path, err), http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
 	// Runs daily from `cron.yaml`, or manually from admin link.
 	if r.URL.Path == "/task/notify" {
 		err = tasknotifyHandler(w, ctx, client)
@@ -439,6 +506,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fix (load/save) all entities.
 	if strings.HasPrefix(r.URL.Path, "/task/fix") {
 		err = fixHandler(w, r, ctx, client)
 		if err != nil {

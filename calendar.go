@@ -8,11 +8,6 @@ import (
 )
 
 func renderCalendarView(w io.Writer, calendar *Entity) error {
-	clazz := ""
-	if !calendar.Enabled {
-		clazz = "disabled"
-	}
-
 	formattedDate := calendar.FirstOccurrence.Format("2006-01-02")
 	fmt.Fprintf(w, `
 		<div class="%s">
@@ -21,7 +16,7 @@ func renderCalendarView(w io.Writer, calendar *Entity) error {
 		<div class="comments">%s</div>
 		</div>
 	`,
-		clazz,
+		calendar.enabledClass(),
 		calendar.editURL(),
 		calendar.Key.Kind,
 		formattedDate,

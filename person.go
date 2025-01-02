@@ -36,14 +36,18 @@ func renderPersonView(w io.Writer, ctx context.Context, client *datastore.Client
 			comments := html.EscapeString(person.Comments)
 			fmt.Fprintf(w, `
 				<hr>
-				<a href="%s" class="edit-link">Edit</a>
-				<span class="thing">%s</span> <span class="tag">(%s) [%s]</span><br>
-				<div class="comments">%s</div>
-				<div class="indent">
-			`, person.editURL(),
+				<div class="%s">
+					<a href="%s" class="edit-link">Edit</a>
+					<span class="thing">%s</span> <span class="tag">(%s) [%s] %s</span><br>
+					<div class="comments">%s</div>
+					<div class="indent">
+			`,
+				person.enabledClass(),
+				person.editURL(),
 				name,
 				person.Category,
 				person.enabledText(),
+				person.sendCardText(),
 				comments)
 		case "Contact":
 			renderContactView(w, &child)
@@ -57,7 +61,9 @@ func renderPersonView(w io.Writer, ctx context.Context, client *datastore.Client
 	}
 
 	fmt.Fprintf(w, `
-		</div>`)
+			</div>
+		</div>
+	`)
 
 	return nil
 }

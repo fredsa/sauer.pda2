@@ -15,22 +15,19 @@ func renderContactView(w io.Writer, contact *Entity) error {
 		`, text, text)
 	}
 
-	clazz := ""
-	if !contact.Enabled {
-		clazz = "disabled"
-	}
 	fmt.Fprintf(w, `
 		<div class="%s">
-		<a href="%s" class="edit-link">Edit</a>
-		<span class="thing %s">%s</span>
-	`, clazz,
+			<a href="%s" class="edit-link">Edit</a>
+			<span class="thing %s">%s</span>
+	`,
+		contact.enabledClass(),
 		contact.editURL(),
 		contact.Key.Kind,
 		text)
 
 	fmt.Fprintf(w, `
-		<span class="tag">(%s %s) [%s]</span><br>
-		<div class="comments">%s</div>
+			<span class="tag">(%s %s) [%s]</span><br>
+			<div class="comments">%s</div>
 		</div>
 	`, contact.ContactMethod,
 		contact.ContactType,

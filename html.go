@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
+	"google.golang.org/appengine/v2"
 	"google.golang.org/appengine/v2/user"
 )
 
@@ -15,6 +17,11 @@ func preamble(ctx context.Context, q string) string {
 	u := user.Current(ctx)
 	if u == nil && isDev() {
 		u = &user.User{Email: "someone@gmail.com"}
+	}
+
+	clazz := ""
+	if projectID() == "sauer-pda" && !strings.HasPrefix(appengine.DefaultVersionHostname(ctx), "sauer-pda"+".") {
+		clazz = "warn"
 	}
 
 	buffer.WriteString(fmt.Sprintf(`
@@ -90,9 +97,10 @@ func preamble(ctx context.Context, q string) string {
 				font-family: monospace;
 				background: lightblue;
 			}
-			.appid.sauer-pda {
-					background: red;
-					color: white;
+			.appid.warn {
+				background: red;
+				color: white;
+				padding: 0 24px;
 			}
 			.powered {
 				color: #777;
@@ -135,7 +143,7 @@ func preamble(ctx context.Context, q string) string {
 
 			<hr>
 	`,
-		projectID(),
+		clazz,
 		projectID(),
 		u.Email,
 		q))

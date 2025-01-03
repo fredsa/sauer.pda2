@@ -31,4 +31,4 @@ esac
 $GCLOUD -v || (echo "ERROR: gcloud must be in your PATH"; exit 1)
 
 echo -e "\n*** DEPLOYING ***\n"
-$GCLOUD app deploy --version "${VERSION}"
+$GCLOUD app deploy --version "${VERSION}" $*

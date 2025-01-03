@@ -89,16 +89,6 @@ func getValue(r *http.Request, name string) string {
 	return value
 }
 
-func intersection(a, b []*datastore.Key) []*datastore.Key {
-	result := make([]*datastore.Key, 0)
-	for k := range a {
-		if slices.ContainsFunc(b, func(v *datastore.Key) bool { return v.Equal(a[k]) }) {
-			result = append(result, a[k])
-		}
-	}
-	return result
-}
-
 func mailmergeHandler(ctx context.Context, client *datastore.Client) (string, error) {
 	var buffer bytes.Buffer
 
@@ -225,49 +215,59 @@ func tasknotifyHandler(ctx context.Context, client *datastore.Client) (string, e
 	return buffer.String(), nil
 }
 
+func wordSearch(ctx context.Context, client *datastore.Client, words []string) ([]*datastore.Key, error) {
+	// Map prevents duplicate results.
+	keymap := make(map[string]*datastore.Key)
+	for _, word := range words {
+		// TODO: Fetch all child kinds at once.
+		for _, kind := range kinds {
+			query := datastore.NewQuery(kind)
+			query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: ">=", Value: word})
+			query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: "<=", Value: word + "~"})
+			query = query.KeysOnly()
+			keys, err := client.GetAll(ctx, query, Entity{})
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("Failed to fetch keys for kind %s, word %s: %v", kind, word, err))
+			}
+			// log.Printf("word=%s kind=%s => keys=%q", word, kind, keys)
+
+			for _, key := range keys {
+				// Convert keys to root `Person` key.
+				for key.Parent != nil {
+					key = key.Parent
+				}
+				keymap[key.Encode()] = key
+			}
+		}
+	}
+
+	uniquekeys := make([]*datastore.Key, 0, len(keymap))
+	for _, k := range keymap {
+		uniquekeys = append(uniquekeys, k)
+	}
+
+	return uniquekeys, nil
+}
+
 func searchHandler(ctx context.Context, client *datastore.Client, q string) (string, error) {
 	var buffer bytes.Buffer
 
-	keys := []*datastore.Key{}
 	q = strings.TrimSpace(strings.ToLower(q))
-	qlist := WORDS_RE.Split(q, -1)
-	for i, qword := range qlist {
-		wordkeys := make([]*datastore.Key, 0)
-		for _, kind := range kinds {
-			query := datastore.NewQuery(kind)
-			query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: ">=", Value: qword})
-			query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: "<=", Value: qword + "~"})
-			query = query.KeysOnly()
-			ks, err := client.GetAll(ctx, query, Entity{})
-			if err != nil {
-				return "", errors.New(fmt.Sprintf("Failed to fetch keys for kind %s, word %s: %v", kind, qword, err))
-			}
-			// log.Printf("Found kind=%s, qword=%s, ks=%q", kind, qword, ks)
-			wordkeys = append(wordkeys, ks...)
-		}
+	words := WORDS_RE.Split(q, -1)
 
-		// Convert keys to root `Person` key.
-		for j, wk := range wordkeys {
-			if wordkeys[j].Parent != nil {
-				wordkeys[j] = wk.Parent
-			}
-		}
-
-		if i == 0 {
-			keys = wordkeys
-		} else {
-			keys = intersection(keys, wordkeys)
-		}
+	keys, err := wordSearch(ctx, client, words)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to get people keys from query: %v", err))
 	}
 
 	var entities = make([]Entity, len(keys))
-	err := client.GetMulti(ctx, keys, entities)
+	err = client.GetMulti(ctx, keys, entities)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to fetch entities with keys %v: %v", keys, err))
+		return "", errors.New(fmt.Sprintf("Failed to fetch entities with keys %q: %v", keys, err))
 	}
 
 	buffer.WriteString(preamble(ctx, q))
-	buffer.WriteString(fmt.Sprintf("<div>%d result(s) for: %q</div>", len(entities), qlist))
+	buffer.WriteString(fmt.Sprintf("<div>%d result(s) for: %q</div>", len(entities), words))
 	for _, entity := range entities {
 		resp, err := renderPersonView(ctx, client, &entity)
 		if err != nil {

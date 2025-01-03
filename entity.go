@@ -155,6 +155,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 }
 
 func (entity *Entity) words() []string {
+	// Map prevents duplicate results.
 	results := make(map[string]struct{})
 	t := reflect.TypeOf(entity).Elem()
 	v := reflect.ValueOf(entity).Elem()

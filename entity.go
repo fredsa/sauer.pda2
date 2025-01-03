@@ -215,6 +215,7 @@ func (entity *Entity) save(ctx context.Context, client *datastore.Client) (*data
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to put entity: %v", err))
 	}
+
 	return key, nil
 }
 

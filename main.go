@@ -472,18 +472,6 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 				renderForm(w, ctx, entity)
 				renderPostamble(ctx, w)
 			}
-		case "fix":
-			// count = 0
-			// query = db.Query(keys_only == True)
-			// for key := range query {
-			// 	count += 1
-			// 	if key.kind().startswith('_') {
-			// 		continue
-			// 	}
-			// 	//       taskqueue.add(url='/', params={'fix': key})
-			// 	log.Printf("%s: %s", count, key)
-			// }
-			// fmt.Fprintf(w, `DONE<br>`)
 		default:
 			renderPremable(w, ctx, q)
 			renderPostamble(ctx, w)
@@ -523,7 +511,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fix (load/save) all entities.
+	// Fix entities.
 	if strings.HasPrefix(r.URL.Path, "/task/fix") {
 		err = fixHandler(w, r, ctx, client)
 		if err != nil {

@@ -148,7 +148,7 @@ func preamble(ctx context.Context, q string) string {
 		u.Email,
 		q))
 
-	buffer.WriteString(entityLink("Person", nil))
+	buffer.WriteString(createEntityLink("Person", nil))
 	buffer.WriteString(fmt.Sprintf(`<br><br>`))
 
 	return buffer.String()

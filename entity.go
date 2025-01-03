@@ -312,7 +312,7 @@ func form(ctx context.Context, entity *Entity) string {
 	if !entity.Key.Incomplete() && entity.Key.Kind == "Person" {
 		for _, kind := range kinds {
 			if kind != entity.Key.Kind {
-				buffer.WriteString(entityLink(kind, entity.Key))
+				buffer.WriteString(createEntityLink(kind, entity.Key))
 			}
 		}
 	}
@@ -320,7 +320,7 @@ func form(ctx context.Context, entity *Entity) string {
 	return buffer.String()
 }
 
-func entityLink(kind string, parentKey *datastore.Key) string {
+func createEntityLink(kind string, parentKey *datastore.Key) string {
 	childkey := datastore.IDKey(kind, 0, parentKey)
 	return fmt.Sprintf(`<a href="?action=create&key=%s">[+%s]</a>&nbsp;`, childkey.Encode(), kind)
 }

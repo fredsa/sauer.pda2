@@ -320,12 +320,6 @@ func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datast
 		before := fmt.Sprintf("%v", e)
 		e.fix()
 
-		dbkey, err := e.save(ctx, client)
-		if err != nil {
-			return errors.New(fmt.Sprintf("Unable to save entity: %v", err))
-		}
-		e.Key = dbkey
-
 		after := fmt.Sprintf("%v", e)
 		if before == after {
 			fmt.Fprintf(w, "Same")
@@ -334,6 +328,8 @@ func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datast
 			fmt.Fprintf(w, "After : %v\n", after)
 		}
 		fmt.Fprint(w, strings.Repeat("\n", 10))
+
+		entities[i] = e
 	}
 	keys, err = client.PutMulti(ctx, keys, entities)
 	if err != nil {

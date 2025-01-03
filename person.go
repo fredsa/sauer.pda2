@@ -1,11 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"html"
-	"io"
 
 	"cloud.google.com/go/datastore"
 )
@@ -20,13 +20,15 @@ var categories = []string{
 	"Business Relations",
 }
 
-func renderPersonView(w io.Writer, ctx context.Context, client *datastore.Client, person *Entity) error {
+func renderPersonView(ctx context.Context, client *datastore.Client, person *Entity) (string, error) {
+	var buffer bytes.Buffer
+
 	var children []Entity
 	query := datastore.NewQuery("").Ancestor(person.Key)
 	// query = query.FilterField("__key__", ">", person.Key)
 	_, err := client.GetAll(ctx, query, &children)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to get all entities: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to get all entities: %v", err))
 	}
 
 	for _, child := range children {
@@ -34,7 +36,7 @@ func renderPersonView(w io.Writer, ctx context.Context, client *datastore.Client
 		case "Person":
 			name := html.EscapeString(person.displayName())
 			comments := html.EscapeString(person.Comments)
-			fmt.Fprintf(w, `
+			buffer.WriteString(fmt.Sprintf(`
 				<hr>
 				<div class="%s">
 					<a href="%s" class="edit-link">Edit</a>
@@ -48,22 +50,22 @@ func renderPersonView(w io.Writer, ctx context.Context, client *datastore.Client
 				person.Category,
 				person.enabledText(),
 				person.sendCardText(),
-				comments)
+				comments))
 		case "Contact":
-			renderContactView(w, &child)
+			buffer.WriteString(contactView(&child))
 		case "Address":
-			renderAddressView(w, &child)
+			buffer.WriteString(addressView(&child))
 		case "Calendar":
-			renderCalendarView(w, &child)
+			buffer.WriteString(calendarView(&child))
 		default:
-			return errors.New(fmt.Sprintf("Unknown kind: %s", child.Key.Kind))
+			return "", errors.New(fmt.Sprintf("Unknown kind: %s", child.Key.Kind))
 		}
 	}
 
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 			</div>
 		</div>
-	`)
+	`))
 
-	return nil
+	return buffer.String(), nil
 }

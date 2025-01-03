@@ -1,13 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"html"
-	"io"
 	"strings"
 )
 
-func renderContactView(w io.Writer, contact *Entity) error {
+func contactView(contact *Entity) string {
+	var buffer bytes.Buffer
+
 	text := html.EscapeString(contact.ContactText)
 	if strings.HasPrefix(text, "http") {
 		text = fmt.Sprintf(`
@@ -15,7 +17,7 @@ func renderContactView(w io.Writer, contact *Entity) error {
 		`, text, text)
 	}
 
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 		<div class="%s">
 			<a href="%s" class="edit-link">Edit</a>
 			<span class="thing %s">%s</span>
@@ -23,9 +25,9 @@ func renderContactView(w io.Writer, contact *Entity) error {
 		contact.enabledClass(),
 		contact.editURL(),
 		contact.Key.Kind,
-		text)
+		text))
 
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 			<span class="tag">(%s %s) [%s]</span><br>
 			<div class="comments">%s</div>
 		</div>
@@ -33,7 +35,7 @@ func renderContactView(w io.Writer, contact *Entity) error {
 		contact.ContactType,
 		contact.enabledText(),
 		html.EscapeString(contact.Comments),
-	)
+	))
 
-	return nil
+	return buffer.String()
 }

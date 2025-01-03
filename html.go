@@ -1,21 +1,23 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 
 	"google.golang.org/appengine/v2/user"
 )
 
-func renderPremable(w io.Writer, ctx context.Context, q string) {
+func preamble(ctx context.Context, q string) string {
+	var buffer bytes.Buffer
+
 	u := user.Current(ctx)
 	if u == nil && isDev() {
 		u = &user.User{Email: "someone@gmail.com"}
 	}
 
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
 	<head>
@@ -124,15 +126,20 @@ func renderPremable(w io.Writer, ctx context.Context, q string) {
 			<hr>
 	`,
 		u.Email,
-		q)
+		q))
 
-	renderCreateEntity(w, "Person", nil)
-	fmt.Fprintf(w, `<br><br>`)
+	buffer.WriteString(entityLink("Person", nil))
+	buffer.WriteString(fmt.Sprintf(`<br><br>`))
+
+	return buffer.String()
 }
 
-func renderPostamble(ctx context.Context, w io.Writer) {
+func postamble(ctx context.Context) string {
+	var buffer bytes.Buffer
+
 	if isAdmin(ctx) {
-		fmt.Fprintf(w, `
+
+		buffer.WriteString(fmt.Sprintf(`
 			<br>
 			<div class="admin"><a href="%s" target="_blank">Console</a>, <a href="%s" target="_blank">Datastore</a></div>
 			<div class="admin"><a href="/mailmerge">mailmerge.csv</a></div>
@@ -141,17 +148,17 @@ func renderPostamble(ctx context.Context, w io.Writer) {
 		`,
 			consoleURL(),
 			datastoreURL(),
-		)
+		))
 	}
 
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 		<script>
 			document.searchform.q.focus();
 			document.searchform.q.select();
 		</script>
-	`)
+	`))
 
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 			<div class="powered">
 				version <span class="version">%s</span>,
 				powered by Go on App Engine
@@ -162,5 +169,7 @@ func renderPostamble(ctx context.Context, w io.Writer) {
     `,
 		os.Getenv(GAE_VERSION),
 		os.Getenv(GAE_ENV),
-		os.Getenv(GAE_RUNTIME))
+		os.Getenv(GAE_RUNTIME)))
+
+	return buffer.String()
 }

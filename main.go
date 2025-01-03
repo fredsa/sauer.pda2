@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -98,9 +99,11 @@ func intersection(a, b []*datastore.Key) []*datastore.Key {
 	return result
 }
 
-func mailmergeHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
+func mailmergeHandler(ctx context.Context, client *datastore.Client) (string, error) {
+	var buffer bytes.Buffer
+
 	lineFormat := "%q,%q,%q,%q,%q\n"
-	fmt.Fprintf(w, lineFormat, "Name", "AddressLine1", "AddressLine2", "AddressLine3", "AddressLine4")
+	buffer.WriteString(fmt.Sprintf(lineFormat, "Name", "AddressLine1", "AddressLine2", "AddressLine3", "AddressLine4"))
 
 	query := datastore.NewQuery("Person")
 	query = query.FilterField("send_card", "=", true)
@@ -108,7 +111,7 @@ func mailmergeHandler(w http.ResponseWriter, ctx context.Context, client *datast
 	var people []Entity
 	_, err := client.GetAll(ctx, query, &people)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to fetch people: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to fetch people: %v", err))
 	}
 
 	for _, person := range people {
@@ -123,16 +126,16 @@ func mailmergeHandler(w http.ResponseWriter, ctx context.Context, client *datast
 		var addresses []Entity
 		_, err = client.GetAll(ctx, aquery, &addresses)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to fetch addresses: %v", err))
+			return "", errors.New(fmt.Sprintf("Failed to fetch addresses: %v", err))
 		}
 
 		if len(addresses) == 0 {
-			fmt.Fprintf(w, lineFormat, name,
+			buffer.WriteString(fmt.Sprintf(lineFormat, name,
 				"___________",
 				"___________",
 				"___________",
 				"___________",
-			)
+			))
 		}
 
 		for _, a := range addresses {
@@ -152,19 +155,21 @@ func mailmergeHandler(w http.ResponseWriter, ctx context.Context, client *datast
 			case "Canada":
 				line3 = a.City + " " + a.StateProvince + "  " + a.PostalCode
 			}
-			fmt.Fprintf(w, lineFormat, name,
+			buffer.WriteString(fmt.Sprintf(lineFormat, name,
 				a.AddressLine1,
 				a.AddressLine2,
 				strings.TrimSpace(line3),
 				a.Country,
-			)
+			))
 		}
 	}
 
-	return nil
+	return buffer.String(), nil
 }
 
-func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client) error {
+func tasknotifyHandler(ctx context.Context, client *datastore.Client) (string, error) {
+	var buffer bytes.Buffer
+
 	// https://cloud.google.com/appengine/docs/standard/services/mail?tab=go#who_can_send_mail
 	// - The Gmail or Google Workspace Account of the user who is currently signed in
 	// - Any email address of the form anything@[MY_PROJECT_ID].appspotmail.com or anything@[MY_PROJECT_NUMBER].appspotmail.com
@@ -183,10 +188,10 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 	var events []Entity
 	_, err := client.GetAll(ctx, query, &events)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
 	}
 
-	fmt.Fprintf(w, "Comparing %d enabled calendar entries ragainst today's date: %v\n", len(events), nowmmdd)
+	buffer.WriteString(fmt.Sprintf("Comparing %d enabled calendar entries ragainst today's date: %v\n", len(events), nowmmdd))
 	for _, event := range events {
 		if !event.Enabled {
 			continue
@@ -200,7 +205,7 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 			event := fmt.Sprintf("%s %s %s", event.FirstOccurrence.Format("2006-01-02"), event.Occasion, event.Comments)
 			body := fmt.Sprintf("%s\n\n%s\n", person.displayName(), person.viewURL())
 			subject := fmt.Sprintf("%s %s", projectID(), event)
-			fmt.Fprintf(w, "\n>>> MATCH %v\n", event)
+			buffer.WriteString(fmt.Sprintf("\n>>> MATCH %v\n", event))
 
 			msg := &mail.Message{
 				Sender:  sender,
@@ -217,10 +222,12 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 		}
 	}
 
-	return nil
+	return buffer.String(), nil
 }
 
-func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, q string) error {
+func searchHandler(ctx context.Context, client *datastore.Client, q string) (string, error) {
+	var buffer bytes.Buffer
+
 	keys := []*datastore.Key{}
 	q = strings.TrimSpace(strings.ToLower(q))
 	qlist := WORDS_RE.Split(q, -1)
@@ -233,7 +240,7 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 			query = query.KeysOnly()
 			ks, err := client.GetAll(ctx, query, Entity{})
 			if err != nil {
-				return errors.New(fmt.Sprintf("Failed to fetch keys for kind %s, word %s: %v", kind, qword, err))
+				return "", errors.New(fmt.Sprintf("Failed to fetch keys for kind %s, word %s: %v", kind, qword, err))
 			}
 			// log.Printf("Found kind=%s, qword=%s, ks=%q", kind, qword, ks)
 			wordkeys = append(wordkeys, ks...)
@@ -256,53 +263,55 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	var entities = make([]Entity, len(keys))
 	err := client.GetMulti(ctx, keys, entities)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to fetch entities with keys %v: %v", keys, err))
+		return "", errors.New(fmt.Sprintf("Failed to fetch entities with keys %v: %v", keys, err))
 	}
 
-	renderPremable(w, ctx, q)
-	fmt.Fprintf(w, "<div>%d result(s) for: %q</div>", len(entities), qlist)
+	buffer.WriteString(preamble(ctx, q))
+	buffer.WriteString(fmt.Sprintf("<div>%d result(s) for: %q</div>", len(entities), qlist))
 	for _, entity := range entities {
-		renderPersonView(w, ctx, client, &entity)
+		resp, err := renderPersonView(ctx, client, &entity)
+		if err != nil {
+			return "", errors.New(fmt.Sprintf("Failed to render person view: %v", err))
+		}
+		buffer.WriteString(resp)
 	}
-	renderPostamble(ctx, w)
+	buffer.WriteString(postamble(ctx))
 
-	return nil
+	return buffer.String(), nil
 }
 
-func addTask(w http.ResponseWriter, ctx context.Context, task *taskqueue.Task) error {
+func addTask(ctx context.Context, task *taskqueue.Task) (string, error) {
 	if isDev() {
-		fmt.Fprintf(w, "*** dev mode *** Not adding task: %s", task.Path)
-		return nil
+		return fmt.Sprintf("*** dev mode *** Not adding task: %s", task.Path), nil
 	} else {
 		task, err := taskqueue.Add(ctx, task, "")
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to add task %v: %v", task.Path, err))
+			return "", errors.New(fmt.Sprintf("Failed to add task %v: %v", task.Path, err))
 		}
 
-		fmt.Fprintf(w, "Added task: %s", task.Path)
-		return nil
+		return fmt.Sprintf("Added task: %s", task.Path), nil
 	}
 }
 
-func addTasks(w http.ResponseWriter, ctx context.Context, tasks []*taskqueue.Task) error {
+func addTasks(ctx context.Context, tasks []*taskqueue.Task) (string, error) {
 	if isDev() {
-		fmt.Fprintf(w, "*** dev mode *** Not adding %d tasks", len(tasks))
-		return nil
+		return fmt.Sprintf("*** dev mode *** Not adding %d tasks", len(tasks)), nil
 	} else {
 		tasks, err := taskqueue.AddMulti(ctx, tasks, "")
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to add %v tasks: %v", len(tasks), err))
+			return "", errors.New(fmt.Sprintf("Failed to add %v tasks: %v", len(tasks), err))
 		}
 
-		fmt.Fprintf(w, "Added %d tasks", len(tasks))
-		return nil
+		return fmt.Sprintf("Added %d tasks", len(tasks)), nil
 	}
 }
 
-func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, key string) error {
+func fixPersonHandler(ctx context.Context, client *datastore.Client, key string) (string, error) {
+	var buffer bytes.Buffer
+
 	dbkey, err := datastore.DecodeKey(key)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to decode person key %q: %v", key, err), http.StatusBadRequest)
+		return "", errors.New(fmt.Sprintf("Failed to decode person key %q: %v", key, err))
 	}
 
 	// Results include ancestor Person and all descendents.
@@ -310,38 +319,40 @@ func fixPersonHandler(w http.ResponseWriter, ctx context.Context, client *datast
 	var entities []Entity
 	_, err = client.GetAll(ctx, query, &entities)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to fetch all to be fixed entities: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to fetch all to be fixed entities: %v", err))
 	}
 
-	fmt.Fprintf(w, "Fixing %d entities:\n", len(entities))
+	buffer.WriteString(fmt.Sprintf("Fixing %d entities:\n", len(entities)))
 	keys := make([]*datastore.Key, len(entities))
 	for i, e := range entities {
 		keys[i] = e.Key
-		fmt.Fprintf(w, "%4d: %v\n", i+1, e.Key)
+		buffer.WriteString(fmt.Sprintf("%4d: %v\n", i+1, e.Key))
 		before := fmt.Sprintf("%v", e)
 		e.fix()
 
 		after := fmt.Sprintf("%v", e)
 		if before == after {
-			fmt.Fprintf(w, "Same")
+			buffer.WriteString(fmt.Sprintf("Same"))
 		} else {
-			fmt.Fprintf(w, "Before: %v\n", before)
-			fmt.Fprintf(w, "After : %v\n", after)
+			buffer.WriteString(fmt.Sprintf("Before: %v\n", before))
+			buffer.WriteString(fmt.Sprintf("After : %v\n", after))
 		}
-		fmt.Fprint(w, strings.Repeat("\n", 10))
+		buffer.WriteString(fmt.Sprint(strings.Repeat("\n", 10)))
 
 		entities[i] = e
 	}
 	keys, err = client.PutMulti(ctx, keys, entities)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to put %d fixed entities: %v", len(entities), err))
+		return "", errors.New(fmt.Sprintf("Failed to put %d fixed entities: %v", len(entities), err))
 	}
 
-	fmt.Fprintf(w, "Done")
-	return nil
+	buffer.WriteString(fmt.Sprintf("Done"))
+	return buffer.String(), nil
 }
 
-func fixAllHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, next string) error {
+func fixAllHandler(ctx context.Context, client *datastore.Client, next string) (string, error) {
+	var buffer bytes.Buffer
+
 	// https://cloud.google.com/appengine/docs/standard/quotas#Task_Queue
 	MAX_TASKS_PER_BATCH := 100
 
@@ -351,7 +362,7 @@ func fixAllHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	if next != "" {
 		key, err := datastore.DecodeKey(next)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to decode person key %q: %v", next, err))
+			return "", errors.New(fmt.Sprintf("Failed to decode person key %q: %v", next, err))
 		}
 		query = query.FilterField("__key__", ">", key)
 	}
@@ -359,42 +370,44 @@ func fixAllHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	var people []Entity
 	_, err := client.GetAll(ctx, query, &people)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to fetch person entities: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to fetch person entities: %v", err))
 	}
 
 	if len(people) == MAX_TASKS_PER_BATCH {
 		next := people[MAX_TASKS_PER_BATCH-1].Key
 		path, err := url.JoinPath("/task/fix", "all", next.Encode())
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to join path: %v", err))
+			return "", errors.New(fmt.Sprintf("Failed to join path: %v", err))
 		}
-		fmt.Fprintf(w, "Adding continuation task: %v\n", path)
+		buffer.WriteString(fmt.Sprintf("Adding continuation task: %v\n", path))
 		task := taskqueue.NewPOSTTask(path, nil)
-		err = addTask(w, ctx, task)
+		resp, err := addTask(ctx, task)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to add continuation task with key %v: %v", next, err))
+			return "", errors.New(fmt.Sprintf("Failed to add continuation task with key %v: %v", next, err))
 		}
+		buffer.WriteString(resp)
 	}
 
-	fmt.Fprintf(w, "\n\nCreating %d tasks:\n", len(people))
+	buffer.WriteString(fmt.Sprintf("\n\nCreating %d tasks:\n", len(people)))
 	tasks := make([]*taskqueue.Task, len(people))
 	for i, person := range people {
 		path, err := url.JoinPath("/task/fix", "Person", person.Key.Encode())
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to join person path: %v", err))
+			return "", errors.New(fmt.Sprintf("Failed to join person path: %v", err))
 		}
 		tasks[i] = taskqueue.NewPOSTTask(path, nil)
-		fmt.Fprintf(w, "%4d: %v => %v  %v\n", i+1, tasks[i].Path, person.Key, person.displayName())
+		buffer.WriteString(fmt.Sprintf("%4d: %v => %v  %v\n", i+1, tasks[i].Path, person.Key, person.displayName()))
 	}
-	err = addTasks(w, ctx, tasks)
+	resp, err := addTasks(ctx, tasks)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to add tasks: %v", err))
+		return "", errors.New(fmt.Sprintf("Failed to add tasks: %v", err))
 	}
+	buffer.WriteString(resp)
 
-	return nil
+	return buffer.String(), nil
 }
 
-func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
+func fixHandler(r *http.Request, ctx context.Context, client *datastore.Client) (string, error) {
 	// Expect one of:
 	// - `/task/fix/all/`         => []string{ "" "task" "fix" "all" "" }
 	// - `/task/fix/all/<key>`    => []string{ "" "task" "fix" "Person" "<key>" }
@@ -402,32 +415,62 @@ func fixHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, cli
 	segments := strings.Split(r.URL.Path, "/")
 
 	if len(segments) != 5 {
-		return errors.New(fmt.Sprintf("Invalid segments: %q", segments))
+		return "", errors.New(fmt.Sprintf("Invalid segments: %q", segments))
 	}
 
 	switch segments[3] {
 	case "Person":
-		return fixPersonHandler(w, ctx, client, segments[4])
+		return fixPersonHandler(ctx, client, segments[4])
 	case "all":
-		return fixAllHandler(w, ctx, client, segments[4])
+		return fixAllHandler(ctx, client, segments[4])
 	default:
-		return errors.New(fmt.Sprintf("Unhandled path segment %s for path: %s", segments[1], r.URL.Path))
+		return "", errors.New(fmt.Sprintf("Unhandled path segment %s for path: %s", segments[1], r.URL.Path))
 	}
 }
 
-func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context, client *datastore.Client) error {
+func viewEntity(ctx context.Context, client *datastore.Client, entity *Entity) (string, error) {
+	var buffer bytes.Buffer
+
+	buffer.WriteString(preamble(ctx, ""))
+	personview, err := renderPersonView(ctx, client, entity)
+	if err != nil {
+		return "", errors.New(fmt.Sprintf("Failed to render person view: %v", err))
+	}
+	buffer.WriteString(personview)
+	buffer.WriteString(postamble(ctx))
+
+	return buffer.String(), nil
+}
+
+func editEntity(ctx context.Context, entity *Entity) string {
+	var buffer bytes.Buffer
+
+	buffer.WriteString(preamble(ctx, ""))
+	buffer.WriteString(form(ctx, entity))
+	buffer.WriteString(postamble(ctx))
+
+	return buffer.String()
+}
+
+func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Client) (string, error) {
+	var buffer bytes.Buffer
+
 	q := getValue(r, "q")
 	action := getValue(r, "action")
 	key := getValue(r, "key")
 
 	if q != "" {
-		searchHandler(w, ctx, client, q)
+		resp, err := searchHandler(ctx, client, q)
+		if err != nil {
+			return "", errors.New(fmt.Sprintf("Failed to search: %v", err))
+		}
+		buffer.WriteString(resp)
 	} else {
 		switch action {
 		case "create":
 			dbkey, err := datastore.DecodeKey(key)
 			if err != nil {
-				return errors.New(fmt.Sprintf("Failed to decode key %q: %v", key, err))
+				return "", errors.New(fmt.Sprintf("Failed to decode key %q: %v", key, err))
 			}
 			entity := Entity{
 				// Key: &datastore.Key{
@@ -435,47 +478,50 @@ func mainPageHandler(w http.ResponseWriter, r *http.Request, ctx context.Context
 				// },
 				Key: dbkey,
 			}
-			renderPremable(w, ctx, q)
-			renderForm(w, ctx, &entity)
-			renderPostamble(ctx, w)
+			buffer.WriteString(editEntity(ctx, &entity))
 		case "view":
 			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
-				return errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))
+				return "", errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))
 			}
-			renderPremable(w, ctx, q)
-			renderPersonView(w, ctx, client, entity)
-			renderPostamble(ctx, w)
+			buffer.WriteString(preamble(ctx, q))
+			personview, err := renderPersonView(ctx, client, entity)
+			if err != nil {
+				return "", errors.New(fmt.Sprintf("Failed to render person view: %v", err))
+			}
+			buffer.WriteString(personview)
+			buffer.WriteString(postamble(ctx))
 		case "edit":
 			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
-				return errors.New(fmt.Sprintf("Unable to convert request to entity: %v", err))
+				return "", errors.New(fmt.Sprintf("Unable to convert request to entity: %v", err))
 			}
 
 			if r.Method == "POST" {
 				dbkey, err := entity.save(ctx, client)
 				if err != nil {
-					return errors.New(fmt.Sprintf("Unable to save entity: %v", err))
+					return "", errors.New(fmt.Sprintf("Unable to save entity: %v", err))
 				}
 				entity.Key = dbkey
 
 				if dbkey.Parent != nil {
 					dbkey = dbkey.Parent
 				}
-				http.Redirect(w, r, fmt.Sprintf("/?action=view&key=%s", dbkey.Encode()), http.StatusFound)
-				return nil
+				resp, err := viewEntity(ctx, client, entity)
+				if err != nil {
+					return "", errors.New(fmt.Sprintf("Failed to view entity: %v", err))
+				}
+				buffer.WriteString(resp)
 			} else {
-				renderPremable(w, ctx, q)
-				renderForm(w, ctx, entity)
-				renderPostamble(ctx, w)
+				buffer.WriteString(editEntity(ctx, entity))
 			}
 		default:
-			renderPremable(w, ctx, q)
-			renderPostamble(ctx, w)
+			buffer.WriteString(preamble(ctx, q))
+			buffer.WriteString(postamble(ctx))
 		}
 	}
 
-	return nil
+	return buffer.String(), nil
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -490,30 +536,34 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	defer client.Close()
 
 	if r.URL.Path == "/mailmerge" {
-		err = mailmergeHandler(w, ctx, client)
+		resp, err := mailmergeHandler(ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to json export %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return
 		}
+		fmt.Fprint(w, resp)
 		return
 	}
 
 	// Runs daily from `cron.yaml`, or manually from admin link.
 	if r.URL.Path == "/task/notify" {
-		err = tasknotifyHandler(w, ctx, client)
+		resp, err := tasknotifyHandler(ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return
 		}
+		fmt.Fprint(w, resp)
 		return
 	}
 
 	// Fix entities.
 	if strings.HasPrefix(r.URL.Path, "/task/fix") {
-		err = fixHandler(w, r, ctx, client)
+		resp, err := fixHandler(r, ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed fix handler: %v", err), http.StatusInternalServerError)
+			return
 		}
+		fmt.Fprint(w, resp)
 		return
 	}
 
@@ -530,8 +580,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = mainPageHandler(w, r, ctx, client)
+	resp, err := mainPageHandler(r, ctx, client)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to render main page: %v", err), http.StatusInternalServerError)
+		return
 	}
+	fmt.Fprint(w, resp)
 }

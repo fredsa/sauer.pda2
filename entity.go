@@ -1,10 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"reflect"
@@ -290,33 +290,39 @@ func (person *Entity) displayName() string {
 	return strings.TrimSpace(t)
 }
 
-func renderForm(w io.Writer, ctx context.Context, entity *Entity) {
-	fmt.Fprintf(w, `
+func form(ctx context.Context, entity *Entity) string {
+	var buffer bytes.Buffer
+
+	buffer.WriteString(fmt.Sprintf(`
 		<hr>
 		<form name="myform" method="post" action=".">
 			<input type="hidden" name="action" value="edit">
 			<table>
-	`)
-	renderFormFields(w, ctx, entity)
-	fmt.Fprintf(w, `<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>`)
-	fmt.Fprintf(w, `
+	`))
+	buffer.WriteString(formFields(ctx, entity))
+	buffer.WriteString(fmt.Sprintf(`
+				<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>
+	`))
+	buffer.WriteString(fmt.Sprintf(`
 			</table>
 		</form>
 		<hr>
-	`)
+	`))
 
 	if !entity.Key.Incomplete() && entity.Key.Kind == "Person" {
 		for _, kind := range kinds {
 			if kind != entity.Key.Kind {
-				renderCreateEntity(w, kind, entity.Key)
+				buffer.WriteString(entityLink(kind, entity.Key))
 			}
 		}
 	}
+
+	return buffer.String()
 }
 
-func renderCreateEntity(w io.Writer, kind string, parentKey *datastore.Key) {
+func entityLink(kind string, parentKey *datastore.Key) string {
 	childkey := datastore.IDKey(kind, 0, parentKey)
-	fmt.Fprintf(w, `<a href="?action=create&key=%s">[+%s]</a>&nbsp;`, childkey.Encode(), kind)
+	return fmt.Sprintf(`<a href="?action=create&key=%s">[+%s]</a>&nbsp;`, childkey.Encode(), kind)
 }
 
 func keyLiteral(key *datastore.Key) string {
@@ -338,7 +344,9 @@ func keyLiteral(key *datastore.Key) string {
 	return fmt.Sprintf("Key(%s)", t)
 }
 
-func renderFormFields(w io.Writer, ctx context.Context, entity *Entity) {
+func formFields(ctx context.Context, entity *Entity) string {
+	var buffer bytes.Buffer
+
 	t := reflect.TypeOf(entity).Elem()
 	v := reflect.ValueOf(entity).Elem()
 	for i := 0; i < t.NumField(); i++ {
@@ -418,6 +426,8 @@ func renderFormFields(w io.Writer, ctx context.Context, entity *Entity) {
 			html = fmt.Sprintf("<div>%v %v=%v</div>", field.Type, label, value)
 		}
 
-		fmt.Fprintf(w, `<tr style="color: %s;"><td style="vertical-align: top; text-align: right;">%s</td><td>%s</td></tr>`, color, label, html)
+		buffer.WriteString(fmt.Sprintf(`<tr style="color: %s;"><td style="vertical-align: top; text-align: right;">%s</td><td>%s</td></tr>`, color, label, html))
 	}
+
+	return buffer.String()
 }

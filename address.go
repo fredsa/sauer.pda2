@@ -1,9 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"html"
-	"io"
 	"strings"
 )
 
@@ -19,11 +19,13 @@ func (address *Entity) snippet() string {
 	return strings.ReplaceAll(s, "/  /", "/")
 }
 
-func renderAddressView(w io.Writer, address *Entity) error {
+func addressView(address *Entity) string {
+	var buffer bytes.Buffer
+
 	qlocation := strings.ReplaceAll(address.snippet(), " / ", " ")
 	mapsURL := "https://maps.google.com/?q=" + qlocation
 
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 		<div class="%s">
 			<a href="%s" class="edit-link">Edit</a>
 
@@ -44,7 +46,7 @@ func renderAddressView(w io.Writer, address *Entity) error {
 		address.enabledText(),
 
 		html.EscapeString(address.Comments),
-	)
+	))
 
-	return nil
+	return buffer.String()
 }

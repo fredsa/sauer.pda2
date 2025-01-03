@@ -1,15 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 
 	"golang.org/x/net/html"
 )
 
-func renderCalendarView(w io.Writer, calendar *Entity) error {
+func calendarView(calendar *Entity) string {
+	var buffer bytes.Buffer
+
 	formattedDate := calendar.FirstOccurrence.Format("2006-01-02")
-	fmt.Fprintf(w, `
+	buffer.WriteString(fmt.Sprintf(`
 		<div class="%s">
 		<a href="%s" class="edit-link">Edit</a>
 		<span class="thing %s">%s</span> <span class="tag">(%s %s) [%s]</span><br>
@@ -24,7 +26,7 @@ func renderCalendarView(w io.Writer, calendar *Entity) error {
 		html.EscapeString(calendar.Occasion),
 		calendar.enabledText(),
 		html.EscapeString(calendar.Comments),
-	)
+	))
 
-	return nil
+	return buffer.String()
 }

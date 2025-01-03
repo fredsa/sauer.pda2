@@ -29,7 +29,7 @@ const GAE_RUNTIME = "GAE_RUNTIME"                   // Runtime in `app.yaml`.
 const GAE_VERSION = "GAE_VERSION"                   // App version.
 const DUMMY_APP_ID = "my-app-id"
 
-var ADMINS_FREDSA = []string{"fredsa@gmail.com", "fred@allen-sauer.com"}
+var ADMINS_FREDSA = []string{"fredsa@gmail.com"}
 var WORDS_RE = regexp.MustCompile(`[^\w=]+`)
 
 func init() {
@@ -77,7 +77,7 @@ func datastoreURL() string {
 }
 
 func isAdmin(ctx context.Context) bool {
-	return isDev() || user.IsAdmin(ctx)
+	return isDev() || slices.Contains(ADMINS_FREDSA, user.Current(ctx).Email)
 }
 
 func getValue(r *http.Request, name string) string {

@@ -30,6 +30,7 @@ const GAE_VERSION = "GAE_VERSION"                   // App version.
 const DUMMY_APP_ID = "my-app-id"
 
 var ADMINS_FREDSA = []string{"fredsa@gmail.com", "fred@allen-sauer.com"}
+var WORDS_RE = regexp.MustCompile(`[^\w=]+`)
 
 func init() {
 	// Register handlers in init() per `appengine.Main()` documentation.
@@ -222,7 +223,7 @@ func tasknotifyHandler(w http.ResponseWriter, ctx context.Context, client *datas
 func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore.Client, q string) error {
 	keys := []*datastore.Key{}
 	q = strings.TrimSpace(strings.ToLower(q))
-	qlist := regexp.MustCompile(`\s+`).Split(q, -1)
+	qlist := WORDS_RE.Split(q, -1)
 	for i, qword := range qlist {
 		wordkeys := make([]*datastore.Key, 0)
 		for _, kind := range kinds {
@@ -259,7 +260,7 @@ func searchHandler(w http.ResponseWriter, ctx context.Context, client *datastore
 	}
 
 	renderPremable(w, ctx, q)
-	fmt.Fprintf(w, "<div>%d result(s)</div>", len(entities))
+	fmt.Fprintf(w, "<div>%d result(s) for: %q</div>", len(entities), qlist)
 	for _, entity := range entities {
 		renderPersonView(w, ctx, client, &entity)
 	}

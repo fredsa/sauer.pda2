@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -154,7 +153,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 }
 
 func (entity *Entity) words() []string {
-	words := []string{}
+	results := make(map[string]struct{})
 	t := reflect.TypeOf(entity).Elem()
 	v := reflect.ValueOf(entity).Elem()
 	for i := 0; i < t.NumField(); i++ {
@@ -170,31 +169,40 @@ func (entity *Entity) words() []string {
 			if value.Bool() {
 				word := fmt.Sprintf("%s=%v", field.Name, value.Bool())
 				// log.Printf("BOOL: %s == %v", field.Name, value)
-				words = append(words, word)
+				results[word] = struct{}{}
 			}
 		} else if field.Type == reflect.TypeOf(time.Time{}) {
 			datevalue := value.Interface().(time.Time)
 			if !datevalue.IsZero() {
 				word := datevalue.Format("2006-01-02")
 				// log.Printf("DATE: %s == %v", field.Name, word)
-				words = append(words, word)
+				results[word] = struct{}{}
 			}
 		} else if field.Tag.Get("form") == "select" {
 			if value.String() != "" {
 				word := fmt.Sprintf("%s=%s", field.Name, value.String())
 				// log.Printf("SELECT: %s", word)
-				words = append(words, word)
+				results[word] = struct{}{}
 			}
 		} else {
-			re := regexp.MustCompile(`\W+`)
-			newwords := re.Split(value.String(), -1)
-			// log.Printf("%s: %q", field.Name, newwords)
-			words = append(words, newwords...)
+			newwords := WORDS_RE.Split(value.String(), -1)
+			for _, word := range newwords {
+				// log.Printf("%s: %q", field.Name, word)
+				results[word] = struct{}{}
+				if strings.Contains(word, "=") {
+					subwords := strings.Split(word, "=")
+					for _, sw := range subwords {
+						// log.Printf("%s: %q", field.Name, sw)
+						results[sw] = struct{}{}
+					}
+				}
+			}
 		}
 	}
 
-	for i, w := range words {
-		words[i] = strings.ToLower(w)
+	words := make([]string, 0, len(results))
+	for word := range results {
+		words = append(words, strings.ToLower(word))
 	}
 	return words
 }

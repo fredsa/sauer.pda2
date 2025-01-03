@@ -138,6 +138,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 			}
 		}
 
+		// TODO After migration, don't fix.
 		e.fix()
 		return e, nil
 	} else {
@@ -147,6 +148,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 			return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey, err))
 		}
 
+		// TODO After migration, don't fix.
 		e.fix()
 		return &e, nil
 	}

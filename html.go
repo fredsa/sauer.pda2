@@ -76,16 +76,23 @@ func preamble(ctx context.Context, q string) string {
 			.thing.Calendar {
 				color: purple;
 			}
-			.title {
+			.title a {
 				text-decoration: none;
 				font-size: 2em;
 				font-weight: bold;
 				padding: 0.2em 0em 0.5em;
-				display: block;
 				color: black;
 			}
-			.title .go {
+			.title a .go {
 				color: darkgreen;
+			}
+			.appid {
+				font-family: monospace;
+				background: lightblue;
+			}
+			.appid.sauer-pda {
+					background: red;
+					color: white;
 			}
 			.powered {
 				color: #777;
@@ -117,7 +124,10 @@ func preamble(ctx context.Context, q string) string {
 		</style>
 		</head>
 		<body class="pda">
-			<a href="/" class="title">PDA2<span class="go">GO</span></a></a>
+			<span class="title">	
+				<a href="/">PDA2<span class="go">GO</span></a>
+				<span class="appid %s">%s</span></a>
+			</span>
 			<div class="email">%s</div>
 			<form name="searchform" method="get">
 				<input type="text" name="q" value="%s"> <input type="submit" value="Search"><br>
@@ -125,6 +135,8 @@ func preamble(ctx context.Context, q string) string {
 
 			<hr>
 	`,
+		projectID(),
+		projectID(),
 		u.Email,
 		q))
 

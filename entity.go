@@ -182,7 +182,7 @@ func (entity *Entity) words() []string {
 			}
 		} else if field.Tag.Get("form") == "select" {
 			if value.String() != "" {
-				word := fmt.Sprintf("%s=%s", field.Name, value.String())
+				word := fmt.Sprintf("%s=%s", field.Name, strings.Trim(value.String(), "()"))
 				// log.Printf("SELECT: %s", word)
 				results[word] = struct{}{}
 			}

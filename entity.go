@@ -48,7 +48,7 @@ type Entity struct {
 	ContactText   string `forkind:"Contact" datastore:"contact_text,omitempty"`
 
 	// Calendar kind.
-	FirstOccurrence time.Time `forkind:"Calendar" datastore:"first_occurrence,omitempty"`
+	FirstOccurrence time.Time `forkind:"Calendar" datastore:"first_occurrence,omitempty" hint:"YYYY-MM-DD"`
 	Frequency       string    `forkind:"Calendar" datastore:"frequency,omitempty" form:"select"`
 	Occasion        string    `forkind:"Calendar" datastore:"occasion,omitempty"`
 
@@ -361,6 +361,7 @@ func formFields(ctx context.Context, entity *Entity) string {
 		}
 
 		forkind := field.Tag.Get("forkind")
+		hint := field.Tag.Get("hint")
 		if field.Name == "Key" {
 			if !isAdmin(ctx) {
 				continue
@@ -369,7 +370,12 @@ func formFields(ctx context.Context, entity *Entity) string {
 			html = fmt.Sprintf(`
 					<input type="hidden" name="key" value="%s">
 					<code>%s<br>%s<br>%s<code>
-				`, entity.Key.Encode(), value, keyLiteral(entity.Key), entity.Key.Encode())
+				`,
+				entity.Key.Encode(),
+				value,
+				keyLiteral(entity.Key),
+				entity.Key.Encode(),
+			)
 		} else if forkind == "hidden" {
 			if !isAdmin(ctx) {
 				continue
@@ -396,7 +402,7 @@ func formFields(ctx context.Context, entity *Entity) string {
 			}
 			html += `</select>`
 		} else if field.Type.Kind() == reflect.String {
-			html = fmt.Sprintf(`<input type="text" name="%s" value="%s">`, field.Name, value)
+			html = fmt.Sprintf(`<input type="text" name="%s" value="%s" placeholder="%s">`, field.Name, value, hint)
 		} else if field.Type.Kind() == reflect.Bool {
 			val := false
 			if !entity.Key.Incomplete() {
@@ -422,7 +428,7 @@ func formFields(ctx context.Context, entity *Entity) string {
 			if !datevalue.IsZero() {
 				date = datevalue.Format("2006-01-02")
 			}
-			html = fmt.Sprintf(`<input type="text" style="width: 8em;" name="%s" value="%s">`, field.Name, date)
+			html = fmt.Sprintf(`<input type="text" style="width: 8em;" name="%s" value="%s" placeholder="%s">`, field.Name, date, hint)
 		} else {
 			html = fmt.Sprintf("<div>%v %v=%v</div>", field.Type, label, value)
 		}

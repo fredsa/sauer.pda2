@@ -39,9 +39,6 @@ type Entity struct {
 	PostalCode    string `forkind:"Address" datastore:"postal_code,omitempty"`
 	Country       string `forkind:"Address" datastore:"country,omitempty"`
 
-	// TODO: delete after purging from datastore.
-	Directions string `forkind:"hidden" datastore:"directions,omitempty,noindex" form:"textarea"`
-
 	// Contact kind.
 	ContactMethod string `forkind:"Contact" datastore:"contact_method,omitempty" form:"select"`
 	ContactType   string `forkind:"Contact" datastore:"contact_type,omitempty" form:"select"`

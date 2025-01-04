@@ -498,6 +498,7 @@ func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Cli
 			}
 
 			if r.Method == "POST" {
+				entity.fix()
 				dbkey, err := entity.save(ctx, client)
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("Unable to save entity: %v", err))

@@ -219,7 +219,7 @@ func wordSearch(ctx context.Context, client *datastore.Client, words []string) (
 	// Map prevents duplicate results.
 	keymap := make(map[string]*datastore.Key)
 	for _, word := range words {
-		// TODO: Fetch all child kinds at once.
+		// Kindless queries aren't supported with property filters.
 		for _, kind := range kinds {
 			query := datastore.NewQuery(kind)
 			query = query.FilterEntity(datastore.PropertyFilter{FieldName: "words", Operator: ">=", Value: word})

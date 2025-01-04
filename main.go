@@ -263,6 +263,13 @@ func searchHandler(ctx context.Context, client *datastore.Client, q string) (str
 	var entities = make([]Entity, len(keys))
 	err = client.GetMulti(ctx, keys, entities)
 	if err != nil {
+		if merr, ok := err.(datastore.MultiError); ok {
+			for i, err := range merr {
+				if err != nil {
+					return "", errors.New(fmt.Sprintf("key[%d]=%q => err=%v", i, keys[i], err))
+				}
+			}
+		}
 		return "", errors.New(fmt.Sprintf("Failed to fetch entities with keys %q: %v", keys, err))
 	}
 

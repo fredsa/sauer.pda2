@@ -504,8 +504,13 @@ func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Cli
 				}
 				entity.Key = dbkey
 
+				// Always display root entity.
 				if dbkey.Parent != nil {
 					dbkey = dbkey.Parent
+					err = client.Get(ctx, dbkey, entity)
+					if err != nil {
+						return "", errors.New(fmt.Sprintf("Failed to get parent entity: %v", err))
+					}
 				}
 				resp, err := viewEntity(ctx, client, entity)
 				if err != nil {

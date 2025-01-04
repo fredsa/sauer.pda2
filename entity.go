@@ -154,11 +154,9 @@ func (entity *Entity) words() []string {
 			// Skip.
 			continue
 		} else if field.Type.Kind() == reflect.Bool {
-			if value.Bool() {
-				word := fmt.Sprintf("%s=%v", field.Name, value.Bool())
-				// log.Printf("BOOL: %s == %v", field.Name, value)
-				results[word] = struct{}{}
-			}
+			word := fmt.Sprintf("%s=%v", field.Name, value.Bool())
+			// log.Printf("BOOL: %s == %v", field.Name, value)
+			results[word] = struct{}{}
 		} else if field.Type == reflect.TypeOf(time.Time{}) {
 			datevalue := value.Interface().(time.Time)
 			if !datevalue.IsZero() {

@@ -249,11 +249,22 @@ func wordSearch(ctx context.Context, client *datastore.Client, words []string) (
 	return uniquekeys, nil
 }
 
+func removeEmtpy(words []string) []string {
+	var result []string
+	for _, str := range words {
+		if str != "" {
+			result = append(result, str)
+		}
+	}
+	return result
+}
+
 func searchHandler(ctx context.Context, client *datastore.Client, q string) (string, error) {
 	var buffer bytes.Buffer
 
 	q = strings.TrimSpace(strings.ToLower(q))
 	words := WORDS_RE.Split(q, -1)
+	words = removeEmtpy(words)
 
 	keys, err := wordSearch(ctx, client, words)
 	if err != nil {

@@ -10,7 +10,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}",
+            "program": "${workspaceFolder}",
             "env": {
                 "GOOGLE_CLOUD_PROJECT": "sauer-pda-dev"
             }

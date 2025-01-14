@@ -37,6 +37,10 @@ func preamble(ctx context.Context, q string) string {
 			option:checked {
 				background-color: #86c7fe;
 			}
+			option:checked:first-child {
+				background-color: #f00;
+				color: #fff;
+			}
 			input[type=text],textarea {
 				width: 30em;
 				max-width: calc(100%% - 8px);

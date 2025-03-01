@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -52,7 +53,15 @@ type Entity struct {
 	// Common fields.
 	Comments string   `forkind:"" datastore:"comments,omitempty,noindex" form:"textarea"` // Not indexed.
 	Enabled  bool     `forkind:"" datastore:"enabled" default:"true"`                     // Default true.
-	Words    []string `forkind:"hidden" datastore:"words,omitempty" json:"-"`
+	Words    []string `forkind:"hidden" datastore:"words,omitempty"`
+}
+
+func (entity *Entity) String() string {
+	jsonData, err := json.Marshal(entity)
+	if err != nil {
+		log.Fatalf("Error entity to JSON: %v", err)
+	}
+	return string(jsonData)
 }
 
 var choices = map[string][]string{

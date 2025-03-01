@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -101,6 +100,9 @@ var choices = map[string][]string{
 func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Client) (entity *Entity, err error) {
 	key := getValue(r, "key")
 	dbkey, err := datastore.DecodeKey(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode key %q: %v", key, err)
+	}
 
 	if r.Method == "POST" {
 		e := &Entity{}
@@ -124,7 +126,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 				if v != "" {
 					t, err = time.Parse("2006-01-02", v)
 					if err != nil {
-						return nil, errors.New(fmt.Sprintf("Failed to parse date %q: %v", v, err))
+						return nil, fmt.Errorf("failed to parse date %q: %v", v, err)
 					}
 				}
 				// log.Printf("DATE: %s == %v", field.Name, t)
@@ -141,7 +143,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 		var e Entity
 		err = client.Get(ctx, dbkey, &e)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Failed to get %s: %v", dbkey, err))
+			return nil, fmt.Errorf("failed to get %s: %v", dbkey, err)
 		}
 
 		return &e, nil
@@ -213,7 +215,7 @@ func (entity *Entity) fix() {
 func (entity *Entity) save(ctx context.Context, client *datastore.Client) (*datastore.Key, error) {
 	key, err := client.Put(ctx, entity.Key, entity)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to put entity: %v", err))
+		return nil, fmt.Errorf("failed to put entity %v: %v", entity, err)
 	}
 
 	return key, nil
@@ -283,21 +285,21 @@ func (person *Entity) displayName() string {
 func form(ctx context.Context, entity *Entity) string {
 	var buffer bytes.Buffer
 
-	buffer.WriteString(fmt.Sprintf(`
+	buffer.WriteString(`
 		<hr>
 		<form name="myform" method="post" action=".">
 			<input type="hidden" name="action" value="edit">
 			<table>
-	`))
+	`)
 	buffer.WriteString(formFields(ctx, entity))
-	buffer.WriteString(fmt.Sprintf(`
+	buffer.WriteString(`
 				<tr><td></td><td><input type="submit" name="updated" value="Save" style="margin-top: 1em;"></td></tr>
-	`))
-	buffer.WriteString(fmt.Sprintf(`
+	`)
+	buffer.WriteString(`
 			</table>
 		</form>
 		<hr>
-	`))
+	`)
 
 	if !entity.Key.Incomplete() && entity.Key.Kind == "Person" {
 		for _, kind := range kinds {

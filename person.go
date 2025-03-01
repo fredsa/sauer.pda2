@@ -3,22 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"html"
 
 	"cloud.google.com/go/datastore"
 )
-
-var categories = []string{
-	"(Unspecified)",
-	"Relatives",
-	"Personal",
-	"Hotel/Restaurant/Entertainment",
-	"Services by Individuals",
-	"Companies, Institutions, etc.",
-	"Business Relations",
-}
 
 func renderPersonView(ctx context.Context, client *datastore.Client, person *Entity) (string, error) {
 	var buffer bytes.Buffer
@@ -28,7 +17,7 @@ func renderPersonView(ctx context.Context, client *datastore.Client, person *Ent
 	// query = query.FilterField("__key__", ">", person.Key)
 	_, err := client.GetAll(ctx, query, &children)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to get all entities: %v", err))
+		return "", fmt.Errorf("failed to get all entities: %v", err)
 	}
 
 	for _, child := range children {
@@ -58,14 +47,14 @@ func renderPersonView(ctx context.Context, client *datastore.Client, person *Ent
 		case "Calendar":
 			buffer.WriteString(calendarView(&child))
 		default:
-			return "", errors.New(fmt.Sprintf("Unknown kind: %s", child.Key.Kind))
+			return "", fmt.Errorf("unknown kind: %s", child.Key.Kind)
 		}
 	}
 
-	buffer.WriteString(fmt.Sprintf(`
+	buffer.WriteString(`
 			</div>
 		</div>
-	`))
+	`)
 
 	return buffer.String(), nil
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -101,7 +100,7 @@ func mailmergeHandler(ctx context.Context, client *datastore.Client) (string, er
 	var people []Entity
 	_, err := client.GetAll(ctx, query, &people)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to fetch people: %v", err))
+		return "", fmt.Errorf("failed to fetch people: %v", err)
 	}
 
 	for _, person := range people {
@@ -116,7 +115,7 @@ func mailmergeHandler(ctx context.Context, client *datastore.Client) (string, er
 		var addresses []Entity
 		_, err = client.GetAll(ctx, aquery, &addresses)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to fetch addresses: %v", err))
+			return "", fmt.Errorf("failed to fetch addresses: %v", err)
 		}
 
 		if len(addresses) == 0 {
@@ -178,7 +177,7 @@ func tasknotifyHandler(ctx context.Context, client *datastore.Client) (string, e
 	var events []Entity
 	_, err := client.GetAll(ctx, query, &events)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to fetch calendar entries: %v", err))
+		return "", fmt.Errorf("failed to fetch calendar entries: %v", err)
 	}
 
 	buffer.WriteString(fmt.Sprintf("Comparing %d enabled calendar entries ragainst today's date: %v\n", len(events), nowmmdd))
@@ -191,6 +190,9 @@ func tasknotifyHandler(ctx context.Context, client *datastore.Client) (string, e
 		if mmdd == nowmmdd {
 			person := &Entity{}
 			err = client.Get(ctx, event.Key.Parent, person)
+			if err != nil {
+				return "", fmt.Errorf("failed to get person for event: %v", err)
+			}
 
 			event := fmt.Sprintf("%s %s %s", event.FirstOccurrence.Format("2006-01-02"), event.Occasion, event.Comments)
 			body := fmt.Sprintf("%s\n\n%s\n", person.displayName(), person.viewURL())
@@ -227,7 +229,7 @@ func wordSearch(ctx context.Context, client *datastore.Client, words []string) (
 			query = query.KeysOnly()
 			keys, err := client.GetAll(ctx, query, Entity{})
 			if err != nil {
-				return nil, errors.New(fmt.Sprintf("Failed to fetch keys for kind %s, word %s: %v", kind, word, err))
+				return nil, fmt.Errorf("failed to fetch keys for kind %s, word %s: %v", kind, word, err)
 			}
 			// log.Printf("word=%s kind=%s => keys=%q", word, kind, keys)
 
@@ -268,7 +270,7 @@ func searchHandler(ctx context.Context, client *datastore.Client, q string) (str
 
 	keys, err := wordSearch(ctx, client, words)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to get people keys from query: %v", err))
+		return "", fmt.Errorf("failed to get people keys from query: %v", err)
 	}
 
 	var entities = make([]Entity, len(keys))
@@ -277,11 +279,11 @@ func searchHandler(ctx context.Context, client *datastore.Client, q string) (str
 		if merr, ok := err.(datastore.MultiError); ok {
 			for i, err := range merr {
 				if err != nil {
-					return "", errors.New(fmt.Sprintf("key[%d]=%q => err=%v", i, keys[i], err))
+					return "", fmt.Errorf("key[%d]=%q => err=%v", i, keys[i], err)
 				}
 			}
 		}
-		return "", errors.New(fmt.Sprintf("Failed to fetch entities with keys %q: %v", keys, err))
+		return "", fmt.Errorf("failed to fetch entities with keys %q: %v", keys, err)
 	}
 
 	buffer.WriteString(preamble(ctx, q))
@@ -289,7 +291,7 @@ func searchHandler(ctx context.Context, client *datastore.Client, q string) (str
 	for _, entity := range entities {
 		resp, err := renderPersonView(ctx, client, &entity)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to render person view: %v", err))
+			return "", fmt.Errorf("failed to render person view: %v", err)
 		}
 		buffer.WriteString(resp)
 	}
@@ -304,7 +306,7 @@ func addTask(ctx context.Context, task *taskqueue.Task) (string, error) {
 	} else {
 		task, err := taskqueue.Add(ctx, task, "")
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to add task %v: %v", task.Path, err))
+			return "", fmt.Errorf("failed to add task %v: %v", task.Path, err)
 		}
 
 		return fmt.Sprintf("Added task: %s", task.Path), nil
@@ -317,7 +319,7 @@ func addTasks(ctx context.Context, tasks []*taskqueue.Task) (string, error) {
 	} else {
 		tasks, err := taskqueue.AddMulti(ctx, tasks, "")
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to add %v tasks: %v", len(tasks), err))
+			return "", fmt.Errorf("failed to add %v tasks: %v", len(tasks), err)
 		}
 
 		return fmt.Sprintf("Added %d tasks", len(tasks)), nil
@@ -329,7 +331,7 @@ func fixPersonHandler(ctx context.Context, client *datastore.Client, key string)
 
 	dbkey, err := datastore.DecodeKey(key)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to decode person key %q: %v", key, err))
+		return "", fmt.Errorf("failed to decode person key %q: %v", key, err)
 	}
 
 	// Results include ancestor Person and all descendents.
@@ -337,7 +339,7 @@ func fixPersonHandler(ctx context.Context, client *datastore.Client, key string)
 	var entities []Entity
 	_, err = client.GetAll(ctx, query, &entities)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to fetch all to be fixed entities: %v", err))
+		return "", fmt.Errorf("failed to fetch all to be fixed entities: %v", err)
 	}
 
 	buffer.WriteString(fmt.Sprintf("Fixing %d entities:\n", len(entities)))
@@ -350,7 +352,7 @@ func fixPersonHandler(ctx context.Context, client *datastore.Client, key string)
 
 		after := fmt.Sprintf("%v", e)
 		if before == after {
-			buffer.WriteString(fmt.Sprintf("Same"))
+			buffer.WriteString("Same")
 		} else {
 			buffer.WriteString(fmt.Sprintf("Before: %v\n", before))
 			buffer.WriteString(fmt.Sprintf("After : %v\n", after))
@@ -359,12 +361,12 @@ func fixPersonHandler(ctx context.Context, client *datastore.Client, key string)
 
 		entities[i] = e
 	}
-	keys, err = client.PutMulti(ctx, keys, entities)
+	_, err = client.PutMulti(ctx, keys, entities)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to put %d fixed entities: %v", len(entities), err))
+		return "", fmt.Errorf("failed to put %d fixed entities: %v", len(entities), err)
 	}
 
-	buffer.WriteString(fmt.Sprintf("Done"))
+	buffer.WriteString("Done")
 	return buffer.String(), nil
 }
 
@@ -380,7 +382,7 @@ func fixAllHandler(ctx context.Context, client *datastore.Client, next string) (
 	if next != "" {
 		key, err := datastore.DecodeKey(next)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to decode person key %q: %v", next, err))
+			return "", fmt.Errorf("failed to decode person key %q: %v", next, err)
 		}
 		query = query.FilterField("__key__", ">", key)
 	}
@@ -388,20 +390,20 @@ func fixAllHandler(ctx context.Context, client *datastore.Client, next string) (
 	var people []Entity
 	_, err := client.GetAll(ctx, query, &people)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to fetch person entities: %v", err))
+		return "", fmt.Errorf("failed to fetch person entities: %v", err)
 	}
 
 	if len(people) == MAX_TASKS_PER_BATCH {
 		next := people[MAX_TASKS_PER_BATCH-1].Key
 		path, err := url.JoinPath("/task/fix", "all", next.Encode())
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to join path: %v", err))
+			return "", fmt.Errorf("failed to join path: %v", err)
 		}
 		buffer.WriteString(fmt.Sprintf("Adding continuation task: %v\n", path))
 		task := taskqueue.NewPOSTTask(path, nil)
 		resp, err := addTask(ctx, task)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to add continuation task with key %v: %v", next, err))
+			return "", fmt.Errorf("failed to add continuation task with key %v: %v", next, err)
 		}
 		buffer.WriteString(resp)
 	}
@@ -411,14 +413,14 @@ func fixAllHandler(ctx context.Context, client *datastore.Client, next string) (
 	for i, person := range people {
 		path, err := url.JoinPath("/task/fix", "Person", person.Key.Encode())
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to join person path: %v", err))
+			return "", fmt.Errorf("failed to join person path: %v", err)
 		}
 		tasks[i] = taskqueue.NewPOSTTask(path, nil)
 		buffer.WriteString(fmt.Sprintf("%4d: %v => %v  %v\n", i+1, tasks[i].Path, person.Key, person.displayName()))
 	}
 	resp, err := addTasks(ctx, tasks)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to add tasks: %v", err))
+		return "", fmt.Errorf("failed to add tasks: %v", err)
 	}
 	buffer.WriteString(resp)
 
@@ -433,7 +435,7 @@ func fixHandler(r *http.Request, ctx context.Context, client *datastore.Client) 
 	segments := strings.Split(r.URL.Path, "/")
 
 	if len(segments) != 5 {
-		return "", errors.New(fmt.Sprintf("Invalid segments: %q", segments))
+		return "", fmt.Errorf("invalid segments: %q", segments)
 	}
 
 	switch segments[3] {
@@ -442,7 +444,7 @@ func fixHandler(r *http.Request, ctx context.Context, client *datastore.Client) 
 	case "all":
 		return fixAllHandler(ctx, client, segments[4])
 	default:
-		return "", errors.New(fmt.Sprintf("Unhandled path segment %s for path: %s", segments[1], r.URL.Path))
+		return "", fmt.Errorf("unhandled path segment %s for path: %s", segments[1], r.URL.Path)
 	}
 }
 
@@ -452,7 +454,7 @@ func viewEntity(ctx context.Context, client *datastore.Client, entity *Entity) (
 	buffer.WriteString(preamble(ctx, ""))
 	personview, err := renderPersonView(ctx, client, entity)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Failed to render person view: %v", err))
+		return "", fmt.Errorf("failed to render person view: %v", err)
 	}
 	buffer.WriteString(personview)
 	buffer.WriteString(postamble(ctx))
@@ -480,7 +482,7 @@ func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Cli
 	if q != "" {
 		resp, err := searchHandler(ctx, client, q)
 		if err != nil {
-			return "", errors.New(fmt.Sprintf("Failed to search: %v", err))
+			return "", fmt.Errorf("failed to search: %v", err)
 		}
 		buffer.WriteString(resp)
 	} else {
@@ -488,7 +490,7 @@ func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Cli
 		case "create":
 			dbkey, err := datastore.DecodeKey(key)
 			if err != nil {
-				return "", errors.New(fmt.Sprintf("Failed to decode key %q: %v", key, err))
+				return "", fmt.Errorf("failed to decode key %q: %v", key, err)
 			}
 			entity := Entity{
 				// Key: &datastore.Key{
@@ -500,26 +502,26 @@ func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Cli
 		case "view":
 			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
-				return "", errors.New(fmt.Sprintf("Unable to convert request to person: %v", err))
+				return "", fmt.Errorf("unable to convert request to person: %v", err)
 			}
 			buffer.WriteString(preamble(ctx, q))
 			personview, err := renderPersonView(ctx, client, entity)
 			if err != nil {
-				return "", errors.New(fmt.Sprintf("Failed to render person view: %v", err))
+				return "", fmt.Errorf("failed to render person view: %v", err)
 			}
 			buffer.WriteString(personview)
 			buffer.WriteString(postamble(ctx))
 		case "edit":
 			entity, err := requestToEntity(r, ctx, client)
 			if err != nil {
-				return "", errors.New(fmt.Sprintf("Unable to convert request to entity: %v", err))
+				return "", fmt.Errorf("unable to convert request to entity: %v", err)
 			}
 
 			if r.Method == "POST" {
 				entity.fix()
 				dbkey, err := entity.save(ctx, client)
 				if err != nil {
-					return "", errors.New(fmt.Sprintf("Unable to save entity: %v", err))
+					return "", fmt.Errorf("unable to save entity: %v", err)
 				}
 				entity.Key = dbkey
 
@@ -528,12 +530,12 @@ func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Cli
 					dbkey = dbkey.Parent
 					err = client.Get(ctx, dbkey, entity)
 					if err != nil {
-						return "", errors.New(fmt.Sprintf("Failed to get parent entity: %v", err))
+						return "", fmt.Errorf("failed to get parent entity: %v", err)
 					}
 				}
 				resp, err := viewEntity(ctx, client, entity)
 				if err != nil {
-					return "", errors.New(fmt.Sprintf("Failed to view entity: %v", err))
+					return "", fmt.Errorf("failed to view entity: %v", err)
 				}
 				buffer.WriteString(resp)
 			} else {
@@ -554,7 +556,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	client, err := datastore.NewClient(ctx, projectID())
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create client: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to create client: %v", err), http.StatusInternalServerError)
 		return
 	}
 	defer client.Close()
@@ -562,7 +564,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/mailmerge" {
 		resp, err := mailmergeHandler(ctx, client)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to json export %q: %v", r.URL.Path, err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("failed to json export %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprint(w, resp)
@@ -573,7 +575,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/task/notify" {
 		resp, err := tasknotifyHandler(ctx, client)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("failed to handle task %q: %v", r.URL.Path, err), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprint(w, resp)
@@ -584,7 +586,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/task/fix") {
 		resp, err := fixHandler(r, ctx, client)
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed fix handler: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("failed fix handler: %v", err), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprint(w, resp)
@@ -599,14 +601,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		err := r.ParseForm()
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to parse form: %v", err), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("failed to parse form: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}
 
 	resp, err := mainPageHandler(r, ctx, client)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to render main page: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to render main page: %v", err), http.StatusInternalServerError)
 		return
 	}
 	fmt.Fprint(w, resp)

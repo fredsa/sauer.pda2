@@ -153,7 +153,7 @@ func preamble(ctx context.Context, q string) string {
 		q))
 
 	buffer.WriteString(createEntityLink("Person", nil))
-	buffer.WriteString(fmt.Sprintf(`<br><br>`))
+	buffer.WriteString(`<br><br>`)
 
 	return buffer.String()
 }
@@ -175,12 +175,12 @@ func postamble(ctx context.Context) string {
 		))
 	}
 
-	buffer.WriteString(fmt.Sprintf(`
+	buffer.WriteString(`
 		<script>
 			document.searchform.q.focus();
 			document.searchform.q.select();
 		</script>
-	`))
+	`)
 
 	buffer.WriteString(fmt.Sprintf(`
 			<div class="powered">

@@ -26,7 +26,17 @@ handlers:
   secure: always
   mime_type: text/css
 
-- url: /.*
+- url: /
+  script: auto
+  login: admin
+  secure: always
+
+- url: /mailmerge
+  script: auto
+  login: admin
+  secure: always
+
+- url: /task/.*
   script: auto
   login: admin
   secure: always

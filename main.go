@@ -35,6 +35,10 @@ var WORDS_RE = regexp.MustCompile(`[^\w=]+`)
 func init() {
 	// Register handlers in init() per `appengine.Main()` documentation.
 	http.HandleFunc("/", indexHandler)
+
+	if isDev() {
+		http.Handle("/static/", http.StripPrefix("/static", http.FileServer(http.Dir("static"))))
+	}
 }
 
 func main() {

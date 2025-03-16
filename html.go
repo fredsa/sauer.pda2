@@ -24,133 +24,32 @@ func preamble(ctx context.Context, q string) string {
 		clazz = "warn"
 	}
 
-	buffer.WriteString(fmt.Sprintf(`
+	buffer.WriteString(strings.TrimSpace(fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
 	<head>
 		<meta name="viewport" content="width=device-width,initial-scale=1.0">
 		<title>PDA2GO</title>
-		<style type="text/css">
-			input[type=text],textarea,option:not(:checked) {
-				background-color: #eff9fb;
-			}
-			option:checked {
-				background-color: #86c7fe;
-			}
-			option:checked:first-child {
-				background-color: #f00;
-				color: #fff;
-			}
-			input[type=text],textarea {
-				width: 30em;
-				max-width: calc(100%% - 8px);
-			}
-			textarea {
-				width: 50em;
-				height: 20em;
-				font-family: monospace;
-			}
-			body {
-				line-height: 1.3em;
-				background-color: #e7f4ff;
-			}
-			.comments {
-				font-family: monospace;
-				color: #c44;
-				white-space: pre;
-				padding-bottom: 2em;
-			}
-			.tag {
-				font-size: small;
-			}
-			.indent {
-				padding-left: 2em;
-			}
-			.edit-link {
-				font-size: small;
-				background-color: #ddd;
-				margin: 0.2em;
-				padding: 0px 10px;
-				border-radius: 5px;
-				display: inline-block;
-			}
-			.thing {
-				font-weight: bold;
-				margin: 0em 0.5em 0em 0.2em;
-			}
-			.thing.Address {
-				color: green;
-			}
-			.thing.Contact {
-				color: blue;
-			}
-			.thing.Calendar {
-				color: purple;
-			}
-			.title a {
-				text-decoration: none;
-				font-size: 2em;
-				font-weight: bold;
-				padding: 0.2em 0em 0.5em;
-				color: black;
-			}
-			.title a .go {
-				color: darkgreen;
-			}
-			.appid {
-				font-family: monospace;
-				background: lightblue;
-			}
-			.appid.warn {
-				background: red;
-				color: white;
-				padding: 0 24px;
-			}
-			.powered {
-				color: #777;
-				font-style: italic;
-				text-align: center;
-			}
-			.email {
-				position: absolute;
-				right: 0.5em;
-				top: 0.2em;
-				color: #444;
-			}
-			.disabled, .disabled * {
-				color: #ccc !important;
-			}
-			.admin a, .admin a:visited {
-				color: #844;
-			}
-			.danger {
-				margin-top: 1em;
-			}
-			.danger a, .danger a:visited {
-				color: #f00;
-			}
-			.version {
-				color: #800;
-				font-family: monospace;
-			}
-		</style>
-		</head>
-		<body class="pda">
-			<span class="title">	
-				<a href="/">PDA2<span class="go">GO</span></a>
-				<span class="appid %s">%s</span></a>
-			</span>
-			<div class="email">%s</div>
-			<form name="searchform" method="get">
-				<input type="text" name="q" autocomplete="off" value="%s"> <input type="submit" value="Search"><br>
-			</form>
+		<link rel="icon" href="favicon.ico" type="image/x-icon">
+		<link rel="stylesheet" href="/static/main.css">
+		<script src="/static/main.js"></script>
+	</head>
+	<body class="pda">
+		<span class="title">	
+			<a href="/">PDA2<span class="go">GO</span></a>
+			<span class="appid %s">%s</span></a>
+		</span>
+		<div class="email">%s</div>
+		<form name="searchform" method="get">
+			<input type="text" name="q" autocomplete="off" value="%s"> <input type="submit" value="Search"><br>
+		</form>
 
-			<hr>
+		<hr>
 	`,
 		clazz,
 		projectID(),
 		u.Email,
-		q))
+		q)))
 
 	buffer.WriteString(createEntityLink("Person", nil))
 	buffer.WriteString(`<br><br>`)
@@ -175,21 +74,14 @@ func postamble(ctx context.Context) string {
 		))
 	}
 
-	buffer.WriteString(`
-		<script>
-			document.searchform.q.focus();
-			document.searchform.q.select();
-		</script>
-	`)
-
 	buffer.WriteString(fmt.Sprintf(`
-			<div class="powered">
-				version <span class="version">%s</span>,
-				powered by Go on App Engine
-				(%s %s)
-			</div>
-		</body>
-		</html>
+		<div class="powered">
+			version <span class="version">%s</span>,
+			powered by Go on App Engine
+			(%s %s)
+		</div>
+	</body>
+</html>
     `,
 		os.Getenv(GAE_VERSION),
 		os.Getenv(GAE_ENV),

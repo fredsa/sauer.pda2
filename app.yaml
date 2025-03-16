@@ -5,38 +5,7 @@ runtime: go123
 app_engine_apis: on
 
 handlers:
-- url: /favicon\.ico
-  static_files: static/favicon.ico
-  upload: static/favicon\.ico
-  login: admin
-  secure: always
-  mime_type: image/x-icon
-
-- url: /main\.js
-  static_files: static/main.js
-  upload: static/main\.js
-  login: admin
-  secure: always
-  mime_type: application/javascript
-
-- url: /main\.css
-  static_files: static/main.css
-  upload: static/main\.css
-  login: admin
-  secure: always
-  mime_type: text/css
-
-- url: /
-  script: auto
-  login: admin
-  secure: always
-
-- url: /mailmerge
-  script: auto
-  login: admin
-  secure: always
-
-- url: /task/.*
+- url: /.*
   script: auto
   login: admin
   secure: always

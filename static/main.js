@@ -32,7 +32,7 @@ function highlight() {
 	}
 
 	const q = new URLSearchParams(window.location.search).get('q');
-	if (!q.trim()) {
+	if (!q || !q.trim()) {
 		return;
 	}
 

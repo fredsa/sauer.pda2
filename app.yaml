@@ -10,7 +10,7 @@ basic_scaling:
   idle_timeout: 5m
 
 handlers:
-- url: /.*
+- url: .*
   script: auto
   login: admin
   secure: always

@@ -40,8 +40,9 @@ func preamble(ctx context.Context, q string) string {
 			<span class="appid %s">%s</span></a>
 		</span>
 		<div class="email">%s</div>
-		<form name="searchform" method="get">
-			<input type="text" name="q" autocomplete="off" value="%s"> <input type="submit" value="Search"><br>
+		<form name="searchform" method="get" onsubmit="spin()">
+			<input type="text" name="q" autocomplete="off" value="%s">
+			<input type="submit" id="submit" value="Search"><br>
 		</form>
 
 		<hr>

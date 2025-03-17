@@ -1,3 +1,15 @@
+function spin(event) {
+	const submit = document.getElementById('submit');
+	submit.disabled = true;
+	console.log(submit);
+	const spinner = "\\|/-";
+	let count = 0;
+	setInterval(() =>  {
+		submit.value = "Searching… " + spinner[count%spinner.length];
+		count++;
+	}, 100);
+}
+
 function highlight() {
 	var regex;
 	var color;

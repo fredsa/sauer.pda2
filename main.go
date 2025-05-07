@@ -529,6 +529,8 @@ func mainPageHandler(r *http.Request, ctx context.Context, client *datastore.Cli
 				// Always display root entity.
 				if dbkey.Parent != nil {
 					dbkey = dbkey.Parent
+					// Prevent stale data in un-updated fields.
+					entity = &Entity{}
 					err = client.Get(ctx, dbkey, entity)
 					if err != nil {
 						return "", fmt.Errorf("failed to get parent entity: %v", err)

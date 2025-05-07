@@ -204,6 +204,7 @@ func (entity *Entity) words() []string {
 	for word := range results {
 		words = append(words, strings.ToLower(word))
 	}
+	words = removeEmtpy(words)
 	return words
 }
 

@@ -107,7 +107,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 	if r.Method == "POST" {
 		e := &Entity{}
 
-		t := reflect.TypeOf(e).Elem()
+		t := reflect.TypeFor[Entity]()
 		v := reflect.ValueOf(e).Elem()
 		for i := 0; i < t.NumField(); i++ {
 			field := t.Field(i)
@@ -121,7 +121,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 				continue
 			} else if field.Type.Kind() == reflect.Bool {
 				value.SetBool(v != "")
-			} else if field.Type == reflect.TypeOf(time.Time{}) {
+			} else if field.Type == reflect.TypeFor[time.Time]() {
 				t := time.Time{}
 				if v != "" {
 					t, err = time.Parse("2006-01-02", v)
@@ -153,7 +153,7 @@ func requestToEntity(r *http.Request, ctx context.Context, client *datastore.Cli
 func (entity *Entity) words() []string {
 	// Map prevents duplicate results.
 	results := make(map[string]struct{})
-	t := reflect.TypeOf(entity).Elem()
+	t := reflect.TypeFor[Entity]()
 	v := reflect.ValueOf(entity).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
@@ -171,7 +171,7 @@ func (entity *Entity) words() []string {
 				// log.Printf("BOOL: %s == %v", field.Name, value)
 				results[word] = struct{}{}
 			}
-		} else if field.Type == reflect.TypeOf(time.Time{}) {
+		} else if field.Type == reflect.TypeFor[time.Time]() {
 			datevalue := value.Interface().(time.Time)
 			if !datevalue.IsZero() {
 				word := datevalue.Format("2006-01-02")
@@ -340,7 +340,7 @@ func keyLiteral(key *datastore.Key) string {
 func formFields(ctx context.Context, entity *Entity) string {
 	var buffer bytes.Buffer
 
-	t := reflect.TypeOf(entity).Elem()
+	t := reflect.TypeFor[Entity]()
 	v := reflect.ValueOf(entity).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
@@ -414,7 +414,7 @@ func formFields(ctx context.Context, entity *Entity) string {
 			}
 			html = fmt.Sprintf(`<input type="checkbox" name="%s" %s> %s`, field.Name, checked, label)
 			label = ""
-		} else if field.Type == reflect.TypeOf(time.Time{}) {
+		} else if field.Type == reflect.TypeFor[time.Time]() {
 			datevalue := value.Interface().(time.Time)
 			date := ""
 			if !datevalue.IsZero() {

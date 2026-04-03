@@ -206,7 +206,11 @@ func tasknotifyHandler(ctx context.Context, client *datastore.Client) (string, e
 				Subject: subject,
 				Body:    body,
 			}
-			mail.Send(ctx, msg)
+			err := mail.Send(ctx, msg)
+			if err != nil {
+				return "", fmt.Errorf("Failed to send email for %q: %v", event, err)
+			}
+
 			log.Printf("Sent email for event: %q\n", event)
 			log.Printf("- Sender: %s", sender)
 			log.Printf("- To: %s", emailTo)

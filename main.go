@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -567,6 +568,18 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer client.Close()
+
+	if r.URL.Path == "/_ah/bounce" {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to read body: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer r.Body.Close()
+
+		fmt.Fprintf(w, "Received bounced email:\n%s", body)
+		return
+	}
 
 	if r.URL.Path == "/mailmerge" {
 		resp, err := mailmergeHandler(ctx, client)

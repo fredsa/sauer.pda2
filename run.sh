@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+set -ue
+
+[[ -z "${GOOGLE_CLOUD_PROJECT:-}" ]] && \
+  read -p "GOOGLE_CLOUD_PROJECT " GOOGLE_CLOUD_PROJECT
+
+GOOGLE_CLOUD_PROJECT="$GOOGLE_CLOUD_PROJECT" go run .

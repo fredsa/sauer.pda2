@@ -355,19 +355,20 @@ func formFields(ctx context.Context, entity *Entity) string {
 		forkind := field.Tag.Get("forkind")
 		hint := field.Tag.Get("hint")
 		if field.Name == "Key" {
-			if !isAdmin(ctx) {
-				continue
-			}
-			color = "gray"
-			html = fmt.Sprintf(`
-					<input type="hidden" name="key" value="%s">
-					<code>%s<br>%s<br>%s<code>
+			html = fmt.Sprintf(`<input type="hidden" name="key" value="%s">`,
+				entity.Key.Encode())
+			if isAdmin(ctx) {
+				color = "gray"
+				html += fmt.Sprintf(`
+				<code>%s</code><br>
+				<code>%s</code><br>
+				<code>%s</code>
 				`,
-				entity.Key.Encode(),
-				value,
-				keyLiteral(entity.Key),
-				entity.Key.Encode(),
-			)
+					value,
+					keyLiteral(entity.Key),
+					entity.Key.Encode(),
+				)
+			}
 		} else if forkind == "hidden" {
 			if !isAdmin(ctx) {
 				continue

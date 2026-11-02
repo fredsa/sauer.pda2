@@ -454,6 +454,43 @@ func fixHandler(r *http.Request, ctx context.Context, client *datastore.Client) 
 	}
 }
 
+func calHandler(r *http.Request, ctx context.Context, client *datastore.Client) (string, error) {
+	query := datastore.NewQuery("Calendar")
+	query = query.FilterField("enabled", "=", true)
+
+	var buffer bytes.Buffer
+
+	var calendar []Entity
+	_, err := client.GetAll(ctx, query, &calendar)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch calendar: %v", err)
+	}
+
+	keys := make([]*datastore.Key, len(calendar))
+	for i, event := range calendar {
+		keys[i] = event.Key.Parent
+	}
+
+	people := make([]Entity, len(keys))
+	err = client.GetMulti(ctx, keys, people)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch people: %v", err)
+	}
+
+	for i, event := range calendar {
+		person := people[i]
+		// Output one CSV line: event.FirstOccurence, event.Occasion, event.Comment, person.displayName()
+		buffer.WriteString(fmt.Sprintf("%s,%q,%q,%q\n",
+			event.FirstOccurrence.Format("2006-01-02"),
+			event.Occasion,
+			event.Comments,
+			person.displayName(),
+		))
+	}
+
+	return buffer.String(), nil
+}
+
 func viewEntity(ctx context.Context, client *datastore.Client, entity *Entity) (string, error) {
 	var buffer bytes.Buffer
 
@@ -607,6 +644,17 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		resp, err := fixHandler(r, ctx, client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed fix handler: %v", err), http.StatusInternalServerError)
+			return
+		}
+		fmt.Fprint(w, resp)
+		return
+	}
+
+	// Export calendar.
+	if strings.HasPrefix(r.URL.Path, "/cal") {
+		resp, err := calHandler(r, ctx, client)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed cal handler: %v", err), http.StatusInternalServerError)
 			return
 		}
 		fmt.Fprint(w, resp)
